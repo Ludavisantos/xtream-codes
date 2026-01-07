@@ -99,11 +99,15 @@ async def player_api(
     if action is None or action == "get_user_info":
         exp_timestamp = int(user.expires_at.timestamp()) if user.expires_at else 0
 
+        # Busca mensagem configurada no painel, se existir
+        panel_settings = db.query(models.PanelSettings).first()
+        server_message = (panel_settings.server_message if panel_settings else "") or ""
+
         # user_info no formato esperado por clientes como XCIPTV
         user_info = {
             "username": user.username,
             "password": password,
-            "message": "",
+            "message": server_message,
             "auth": 1,
             "status": "Active",
             "exp_date": str(exp_timestamp) if exp_timestamp else "0",
@@ -143,6 +147,9 @@ async def player_api(
             "time_now": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             "timezone": "America/SAO_Paulo".replace("SAO", "Sao"),
         }
+
+        if server_message:
+            server_info["server_message"] = server_message
 
         return _xtream_response({"user_info": user_info, "server_info": server_info})
 
