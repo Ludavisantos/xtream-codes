@@ -228,7 +228,7 @@ async def sync_vod_from_contents_json(
     db: Session,
     track_progress: bool = False,
     fetch_tmdb: bool = True,
-    only_type: str | None = None,
+    only_type: Optional[str] = None,
 ) -> Dict:
     """Sincroniza conteúdos VOD (filmes/séries) a partir do JSON usado pelo app.
 
