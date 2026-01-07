@@ -7,6 +7,7 @@ from fastapi.responses import (
 )
 from sqlalchemy.orm import Session
 from datetime import datetime
+from typing import Union, List
 import asyncio
 
 import httpx
@@ -18,7 +19,7 @@ from ..security import verify_password
 router = APIRouter(tags=["xtream"])
 
 
-def _xtream_response(payload: dict | list) -> JSONResponse:
+def _xtream_response(payload: Union[dict, list]) -> JSONResponse:
     """Retorna JSONResponse com charset UTF-8 explícito para compatibilidade.
 
     Alguns apps (como XCIPTV) interpretam JSON sem charset como ISO-8859-1,
