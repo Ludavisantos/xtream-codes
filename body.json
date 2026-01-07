@@ -1,0 +1,8 @@
+{
+  "username": "admin",
+  "password": "1234",
+  "is_active": true,
+  "is_admin": true,
+  "max_connections": 1,
+  "expires_at": null
+}

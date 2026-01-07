@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel Xtream Python</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<section id="section-login" class="login-section">
+    <div class="login-card card" id="login-card">
+        <div class="card-body">
+            <h3 class="card-title mb-3">Login do Painel</h3>
+            <p class="text-muted small mb-3">Acesso restrito a administradores.</p>
+            <form id="form-login">
+                <div class="mb-3">
+                    <label class="form-label">Usuário</label>
+                    <input type="text" class="form-control" name="username" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Senha</label>
+                    <input type="password" class="form-control" name="password" required>
+                </div>
+                <div id="login-error" class="text-danger small mb-2" style="display:none"></div>
+                <button type="submit" class="btn btn-primary w-100">Entrar</button>
+            </form>
+        </div>
+    </div>
+    <div class="text-center mt-3 text-muted small">Xtream Python Panel</div>
+</section>
+
+<!-- PAINEL AUTENTICADO -->
+<div id="admin-wrapper" class="admin-wrapper hidden">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">Xtream Python</a>
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link active" data-section="dashboard" href="#">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" data-section="users" href="#">Usuários</a></li>
+            <li class="nav-item"><a class="nav-link" data-section="lines" href="#">Linhas IPTV</a></li>
+            <li class="nav-item"><a class="nav-link" data-section="tests" href="#">Testes IPTV</a></li>
+            <li class="nav-item"><a class="nav-link" data-section="categories" href="#">Categorias</a></li>
+            <li class="nav-item"><a class="nav-link" data-section="channels" href="#">Canais</a></li>
+            <li class="nav-item"><a class="nav-link" data-section="vod" href="#">VOD &amp; Séries</a></li>
+        </ul>
+        <div class="d-flex align-items-center gap-3">
+            <div id="navbar-user-info" class="text-light small"></div>
+            <button id="btn-logout" class="btn btn-outline-light btn-sm" type="button">Sair</button>
+        </div>
+    </div>
+</nav>
+<div class="container mb-4">
+    <!-- Dashboard -->
+    <section id="section-dashboard" class="admin-section">
+        <h2>Dashboard / Sincronização</h2>
+        <div class="row mb-3">
+            <div class="col-md-6 mb-2">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Sincronizar Canais</h5>
+                        <p class="card-text">Puxa categorias e canais do Firestore para o banco local.</p>
+                        <button id="btn-sync-channels" class="btn btn-primary" type="button">Sincronizar canais</button>
+                        <pre id="sync-channels-result" class="mt-2 small bg-light p-2"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-2">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Sincronizar VOD</h5>
+                        <p class="card-text">Puxa filmes e séries do JSON de conteúdos.</p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button id="btn-sync-vod" class="btn btn-primary" type="button">Sincronizar VOD (completo)</button>
+                            <button id="btn-sync-vod-no-episodes" class="btn btn-outline-primary btn-sm" type="button">VOD (sem detalhes de episódios)</button>
+                            <button id="btn-sync-vod-movies" class="btn btn-outline-secondary btn-sm" type="button">Apenas filmes</button>
+                            <button id="btn-sync-vod-series" class="btn btn-outline-secondary btn-sm" type="button">Apenas séries</button>
+                        </div>
+                        <pre id="sync-vod-result" class="mt-2 small bg-light p-2"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-info">
+            <strong>URLs principais Xtream:</strong>
+            <ul class="mb-0">
+                <li><code>{{ base_url }}player_api.php?username=USER&amp;password=PASS</code></li>
+                <li><code>{{ base_url }}get.php?username=USER&amp;password=PASS&amp;type=m3u&amp;output=ts</code></li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Usuários de Painel (admins/revendedores) -->
+    <section id="section-users" class="admin-section d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2>Usuários de Painel</h2>
+            <button class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#user-form-wrapper" type="button">Novo usuário</button>
+        </div>
+        <div id="user-form-wrapper" class="collapse mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <form id="form-user" class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" name="username" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Senha</label>
+                            <input type="password" class="form-control" name="password" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Papel</label>
+                            <select class="form-select" name="role">
+                                <option value="admin">Admin</option>
+                                <option value="vendor">Vendedor</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Validade painel (vendor)</label>
+                            <input type="datetime-local" class="form-control" name="panel_expires_at">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Créditos (vendor)</label>
+                            <input type="number" class="form-control" name="panel_credits" min="0" value="0">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <div class="form-check me-3">
+                                <input class="form-check-input" type="checkbox" name="is_active" checked>
+                                <label class="form-check-label">Ativo</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Criar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <table class="table table-striped table-sm" id="table-users">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Ativo</th>
+                    <th>Papel</th>
+                    <th>Validade painel</th>
+                    <th>Créditos</th>
+                    <th>Expira (linha)</th>
+                    <th>Conexões</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <!-- Linhas IPTV (usuários finais) -->
+    <section id="section-lines" class="admin-section d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2>Linhas IPTV</h2>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm" id="btn-open-line-create" type="button">Adicionar Novo</button>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        Ações
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" id="bulk-delete-lines" type="button">Excluir selecionados</button></li>
+                        <li><button class="dropdown-item" id="bulk-renew-lines" type="button">Renovar +30 dias</button></li>
+                        <li><button class="dropdown-item" id="bulk-change-owner-lines" type="button">Alterar revenda</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <table class="table table-striped table-sm" id="table-lines-users">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="lines-select-all"></th>
+                    <th>Nome</th>
+                    <th>Usuário</th>
+                    <th>Senha</th>
+                    <th>Email</th>
+                    <th>Criado em</th>
+                    <th>Expiração</th>
+                    <th>Status</th>
+                    <th>Telas</th>
+                    <th>Criado por</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+    </section>
+
+    <!-- Testes IPTV -->
+    <section id="section-tests" class="admin-section d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2>Testes IPTV</h2>
+            <button class="btn btn-outline-primary btn-sm" id="btn-line-test-3h" type="button">Criar teste 3h</button>
+        </div>
+        <table class="table table-striped table-sm" id="table-lines-tests">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Owner ID</th>
+                    <th>Expira em</th>
+                    <th>Conexões</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <!-- VOD & Séries -->
+    <section id="section-vod" class="admin-section d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2>VOD &amp; Séries</h2>
+        </div>
+        <p class="text-muted small">Lista de conteúdos VOD (filmes e séries) sincronizados. A edição detalhada é feita via Firestore/contents.json; aqui você pode apenas visualizar e ativar/desativar itens.</p>
+        <table class="table table-striped table-sm" id="table-vod">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Título</th>
+                    <th>Tipo</th>
+                    <th>Categoria</th>
+                    <th>TMDB ID</th>
+                    <th>Disponível</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <!-- Categorias -->
+    <section id="section-categories" class="admin-section d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2>Categorias</h2>
+            <button class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#category-form-wrapper" type="button">Nova categoria</button>
+        </div>
+        <div id="category-form-wrapper" class="collapse mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <form id="form-category" class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Nome</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">ID externo (opcional)</label>
+                            <input type="text" class="form-control" name="external_id">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check me-3">
+                                <input class="form-check-input" type="checkbox" name="is_adult">
+                                <label class="form-check-label">Adulto</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <table class="table table-striped table-sm" id="table-categories">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Adulto</th>
+                    <th>ID externo</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <!-- Canais -->
+    <section id="section-channels" class="admin-section d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2>Canais</h2>
+            <button class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#channel-form-wrapper" type="button">Novo canal</button>
+        </div>
+        <div id="channel-form-wrapper" class="collapse mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <form id="form-channel" class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label">Nome</label>
+                            <input type="text" class="form-control" name="name" required />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Logo URL</label>
+                            <input type="text" class="form-control" name="logo_url">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Stream URL</label>
+                            <input type="text" class="form-control" name="stream_url" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Categoria (ID)</label>
+                            <input type="number" class="form-control" name="category_id">
+                        </div>
+                        <div class="col-md-12 d-flex align-items-end mt-2">
+                            <div class="form-check me-3">
+                                <input class="form-check-input" type="checkbox" name="is_premium">
+                                <label class="form-check-label">Premium</label>
+                            </div>
+                            <div class="form-check me-3">
+                                <input class="form-check-input" type="checkbox" name="is_adult" />
+                                <label class="form-check-label">Adulto</label>
+                            </div>
+                            <div class="form-check me-3">
+                                <input class="form-check-input" type="checkbox" name="is_available" checked>
+                                <label class="form-check-label">Disponível</label>
+                            </div>
+                            <div class="ms-auto">
+                                <label class="form-label">ID externo</label>
+                                <input type="text" class="form-control" name="external_id">
+                            </div>
+                            <button type="submit" class="btn btn-primary ms-3">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <table class="table table-striped table-sm" id="table-channels">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Categoria</th>
+                    <th>Premium</th>
+                    <th>Adulto</th>
+                    <th>Disponível</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+</div>
+<!-- Modal para editar validade do usuário -->
+<div class="modal fade" id="expiryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar validade do usuário</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Escolha quanto tempo deseja adicionar ou defina uma data personalizada.</p>
+        <div class="d-grid gap-2 mb-3">
+          <button type="button" class="btn btn-outline-primary" id="btn-expiry-1m">+ 1 mês</button>
+          <button type="button" class="btn btn-outline-primary" id="btn-expiry-3m">+ 3 meses</button>
+          <button type="button" class="btn btn-outline-primary" id="btn-expiry-6m">+ 6 meses</button>
+        </div>
+        <hr>
+        <div class="mb-2">
+          <label class="form-label">Data personalizada</label>
+          <input type="datetime-local" class="form-control" id="input-expiry-custom">
+        </div>
+        <small class="text-muted">Deixe em branco para remover a expiração.</small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-expiry-save-custom">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal genérico para erros e avisos -->
+<div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="messageModalTitle">Mensagem</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p id="messageModalBody" class="mb-0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para criar nova linha IPTV -->
+<div class="modal fade" id="lineCreateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nova linha IPTV</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Campos ocultos apenas para o JS armazenar usuário/senha gerados automaticamente -->
+        <input type="hidden" id="create-username">
+        <input type="hidden" id="create-password">
+
+        <div class="mb-2">
+          <label class="form-label" for="create-name">Nome do cliente (opcional)</label>
+          <input type="text" class="form-control" id="create-name" placeholder="Nome para identificar o cliente (opcional)">
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label" for="create-phone">Telefone do cliente (opcional)</label>
+          <input type="text" class="form-control" id="create-phone" placeholder="Telefone para contato (opcional)">
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="create-email">Email do cliente (opcional)</label>
+          <input type="email" class="form-control" id="create-email" placeholder="Email do cliente (opcional)">
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="create-months">Validade</label>
+          <select class="form-select" id="create-months">
+            <option value="1">1 mês</option>
+            <option value="2">2 meses</option>
+            <option value="3">3 meses</option>
+            <option value="4">4 meses</option>
+            <option value="5">5 meses</option>
+            <option value="6">6 meses</option>
+          </select>
+          <small class="text-muted">Cada mês consome 1 crédito do revendedor.</small>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="create-max-connections">Conexões</label>
+          <input type="number" class="form-control" id="create-max-connections" min="1" max="3" value="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-line-create-confirm">Criar</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<!-- Modal para criar teste rápido de 3 horas -->
+<div class="modal fade" id="lineTestModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Adicionar Teste Rápido (3 horas)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Campos ocultos apenas para o JS armazenar usuário/senha gerados automaticamente -->
+        <input type="hidden" id="test-username">
+        <input type="hidden" id="test-password">
+        <hr>
+        <div class="mb-2">
+          <label class="form-label">Email (opcional)</label>
+          <input type="email" class="form-control" id="test-email" placeholder="Email do cliente (opcional)">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Celular (opcional)</label>
+          <input type="text" class="form-control" id="test-phone" placeholder="Telefone para contato (opcional)">
+        </div>
+        <small class="text-muted">Usuário e senha são gerados automaticamente. Os campos acima são apenas para seu controle.</small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-line-test-confirm">Criar teste 3h</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para editar painel do usuário (role, validade painel, créditos) -->
+<div class="modal fade" id="userPanelModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar painel do usuário</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label">Papel</label>
+          <select class="form-select" id="modal-user-role">
+            <option value="admin">Admin</option>
+            <option value="vendor">Vendedor</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Validade do painel</label>
+          <input type="datetime-local" class="form-control" id="modal-user-panel-expires">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Créditos</label>
+          <input type="number" class="form-control" id="modal-user-panel-credits" min="0">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-user-panel-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para editar linha IPTV -->
+<div class="modal fade" id="lineEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar linha IPTV</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label" for="modal-line-name">Nome do cliente</label>
+          <input type="text" class="form-control" id="modal-line-name" placeholder="Nome para identificar o cliente">
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="modal-line-phone">Telefone do cliente</label>
+          <input type="text" class="form-control" id="modal-line-phone" placeholder="Telefone para contato">
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="modal-line-email">Email do cliente</label>
+          <input type="email" class="form-control" id="modal-line-email" placeholder="Email do cliente">
+        </div>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="modal-line-active">
+          <label class="form-check-label" for="modal-line-active">Linha ativa</label>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Nova validade</label>
+          <select class="form-select" id="modal-line-months">
+            <option value="keep">Manter expiração atual</option>
+            <option value="clear">Remover expiração</option>
+            <option value="1">+ 1 mês</option>
+            <option value="2">+ 2 meses</option>
+            <option value="3">+ 3 meses</option>
+            <option value="4">+ 4 meses</option>
+            <option value="5">+ 5 meses</option>
+            <option value="6">+ 6 meses</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Conexões</label>
+          <input type="number" class="form-control" id="modal-line-max-connections" min="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-line-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de progresso da sincronização de VOD -->
+<div class="modal fade" id="vodSyncModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Sincronização de VOD</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p id="vod-sync-status" class="mb-2 small">Iniciando sincronização...</p>
+        <pre id="vod-sync-log" class="small bg-light p-2" style="max-height: 300px; overflow-y: auto;"></pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/admin_panel.js"></script>
+</body>
+</html>
