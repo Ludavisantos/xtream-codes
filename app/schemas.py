@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -10,19 +12,19 @@ class UserBase(BaseModel):
     # Papel no painel: "admin" ou "vendor" (revendedor).
     role: str = "admin"
     # Validade de acesso ao painel (para vendedores).
-    panel_expires_at: datetime | None = None
+    panel_expires_at: Optional[datetime] = None
     # Créditos de painel (para vendedores).
     panel_credits: int = 0
 
 
 class UserCreate(UserBase):
     password: str
-    expires_at: datetime | None = None
+    expires_at: Optional[datetime] = None
 
 
 class UserOut(UserBase):
     id: int
-    expires_at: datetime | None
+    expires_at: Optional[datetime]
 
     class Config:
         from_attributes = True
@@ -31,24 +33,24 @@ class UserOut(UserBase):
 class UserInfoXtream(BaseModel):
     username: str
     status: str
-    exp_date: int | None = None
+    exp_date: Optional[int] = None
     max_connections: int
 
 
 class ChannelXtream(BaseModel):
     # Campos básicos compatíveis com muitos apps Xtream
-    num: int | None = None
+    num: Optional[int] = None
     name: str
     stream_type: str = "live"
     stream_id: int
-    stream_icon: str | None = None
-    category_id: int | None = None
-    added: str | None = None
-    custom_sid: str | None = None
+    stream_icon: Optional[str] = None
+    category_id: Optional[int] = None
+    added: Optional[str] = None
+    custom_sid: Optional[str] = None
     tv_archive: int = 0
     tv_archive_duration: int = 0
-    direct_source: str | None = None
-    epg_channel_id: str | None = None
+    direct_source: Optional[str] = None
+    epg_channel_id: Optional[str] = None
 
 
 class CategoryBase(BaseModel):
@@ -57,12 +59,12 @@ class CategoryBase(BaseModel):
 
 
 class CategoryCreate(CategoryBase):
-    external_id: str | None = None
+    external_id: Optional[str] = None
 
 
 class CategoryOut(CategoryBase):
     id: int
-    external_id: str | None = None
+    external_id: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -70,33 +72,33 @@ class CategoryOut(CategoryBase):
 
 class ChannelBase(BaseModel):
     name: str
-    logo_url: str | None = None
+    logo_url: Optional[str] = None
     stream_url: str
-    category_id: int | None = None
+    category_id: Optional[int] = None
     is_premium: bool = False
     is_adult: bool = False
     is_available: bool = True
 
 
 class ChannelCreate(ChannelBase):
-    external_id: str | None = None
+    external_id: Optional[str] = None
 
 
 class ChannelOut(ChannelBase):
     id: int
-    external_id: str | None = None
+    external_id: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
 class IptvLineBase(BaseModel):
-    name: str | None = None
+    name: Optional[str] = None
     username: str
     password: str
     # Dados de contato opcionais do cliente, usados apenas para controle do vendedor
-    customer_email: str | None = None
-    customer_phone: str | None = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
     is_active: bool = True
     max_connections: int = 1
     is_test: bool = False
@@ -104,11 +106,11 @@ class IptvLineBase(BaseModel):
 
 class IptvLineCreate(IptvLineBase):
     # Opcional: permitir que o admin escolha o dono da linha.
-    owner_id: int | None = None
+    owner_id: Optional[int] = None
     # Para criação via painel, normalmente usamos meses de validade em vez de data exata.
     # Se "months" for informado (>0), o backend calcula expires_at com base nisso.
-    months: int | None = None
-    expires_at: datetime | None = None
+    months: Optional[int] = None
+    expires_at: Optional[datetime] = None
 
 
 class IptvLineOut(IptvLineBase):
@@ -116,7 +118,7 @@ class IptvLineOut(IptvLineBase):
     owner_id: int
     created_by: int
     created_at: datetime
-    expires_at: datetime | None
+    expires_at: Optional[datetime]
 
     class Config:
         from_attributes = True
