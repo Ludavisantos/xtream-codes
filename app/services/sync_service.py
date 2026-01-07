@@ -1,4 +1,4 @@
-from typing import Iterable, List, Dict
+from typing import Iterable, List, Dict, Optional
 from datetime import datetime
 import asyncio
 import logging
@@ -212,7 +212,7 @@ def sync_channels_and_categories_from_firestore(db: Session) -> Dict:
     }
 
 
-def _resolve_contents_url_from_firestore(client: firestore.Client) -> str | None:
+def _resolve_contents_url_from_firestore(client: firestore.Client) -> Optional[str]:
     doc = client.collection("app_config").document("contents").get()
     data = doc.to_dict() or {}
     nested = data.get("data") or {}
