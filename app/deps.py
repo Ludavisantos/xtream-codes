@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from datetime import datetime
+from typing import Optional
 
 from .database import get_db
 from . import models
@@ -22,7 +23,7 @@ async def get_current_admin(
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado")
 
-    username: str | None = payload.get("sub")
+    username: Optional[str] = payload.get("sub")
     is_admin_claim = payload.get("is_admin")
     if username is None or not is_admin_claim:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")

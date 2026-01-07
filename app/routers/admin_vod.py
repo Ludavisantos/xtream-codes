@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 
 from ..database import get_db
 from ..deps import get_current_admin
@@ -20,7 +21,7 @@ async def list_vod(
         .order_by(models.VodContent.id)
         .all()
     )
-    out: list[dict] = []
+    out: List[dict] = []
     for v in items:
         out.append(
             {

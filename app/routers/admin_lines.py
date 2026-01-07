@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -23,7 +24,7 @@ def create_line(
     """
 
     # Determina o dono da linha
-    owner: models.User | None = None
+    owner: Optional[models.User] = None
     if (line_in.owner_id is not None) and (current_user.role == "admin"):
         owner = db.query(models.User).filter(models.User.id == line_in.owner_id).first()
         if not owner:
@@ -95,12 +96,12 @@ def create_line(
     return iptv_line
 
 
-@router.get("/", response_model=list[schemas.IptvLineOut])
+@router.get("/", response_model=List[schemas.IptvLineOut])
 def list_lines(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_panel_user),
-    owner_id: int | None = None,
-    is_test: bool | None = None,
+    owner_id: Optional[int] = None,
+    is_test: Optional[bool] = None,
 ):
     """Lista linhas IPTV.
 
@@ -277,7 +278,7 @@ def delete_line(
 
 @router.post("/bulk/delete", status_code=status.HTTP_204_NO_CONTENT)
 def bulk_delete_lines(
-    ids: list[int],
+    ids: List[int],
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_panel_user),
 ):
@@ -303,9 +304,9 @@ def bulk_delete_lines(
     return None
 
 
-@router.post("/bulk/renew", response_model=list[schemas.IptvLineOut])
+@router.post("/bulk/renew", response_model=List[schemas.IptvLineOut])
 def bulk_renew_lines(
-    ids: list[int],
+    ids: List[int],
     months: int = 1,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_panel_user),
@@ -367,9 +368,9 @@ def bulk_renew_lines(
     )
 
 
-@router.post("/bulk/change-owner", response_model=list[schemas.IptvLineOut])
+@router.post("/bulk/change-owner", response_model=List[schemas.IptvLineOut])
 def bulk_change_owner(
-    ids: list[int],
+    ids: List[int],
     new_owner_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_admin),

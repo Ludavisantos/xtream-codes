@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import List
 
 from ..database import get_db
 from .. import models, schemas
@@ -28,7 +29,7 @@ def create_channel(
     db.commit()
     db.refresh(db_ch)
     return db_ch
-@router.get("/", response_model=list[schemas.ChannelOut])
+@router.get("/", response_model=List[schemas.ChannelOut])
 def list_channels(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),

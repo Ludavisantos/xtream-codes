@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, List, Dict
 from datetime import datetime
 import asyncio
 import logging
@@ -36,7 +36,7 @@ def _get_firestore_client() -> firestore.Client:
 
 
 # Estado simples de progresso de sincronização de VOD em memória.
-vod_sync_progress: dict = {
+vod_sync_progress: Dict = {
     "running": False,
     "current": 0,
     "total": 0,
@@ -47,7 +47,7 @@ vod_sync_progress: dict = {
 }
 
 
-def sync_channels_and_categories_from_firestore(db: Session) -> dict:
+def sync_channels_and_categories_from_firestore(db: Session) -> Dict:
     """Sincroniza categorias e canais do Firestore para o SQLite.
 
     Coleções/Docs esperados (mesmo padrão do app Android):
@@ -60,14 +60,14 @@ def sync_channels_and_categories_from_firestore(db: Session) -> dict:
     # --- Categorias ---
     cat_doc = client.collection("config").document("channel_categories").get()
     categories_data = cat_doc.to_dict() or {}
-    raw_categories = categories_data.get("categoriesData") or []
+    raw_categories: List[Dict] = categories_data.get("categoriesData") or []
 
-    external_id_to_category_id: dict[str, int] = {}
+    external_id_to_category_id: Dict[str, int] = {}
     cat_created = 0
     cat_updated = 0
 
     for item in raw_categories:
-        if not isinstance(item, dict):
+        if not isinstance(item, Dict):
             continue
         ext_id = item.get("id")
         if not ext_id:
@@ -102,13 +102,13 @@ def sync_channels_and_categories_from_firestore(db: Session) -> dict:
     # --- Canais ---
     ch_doc = client.collection("config").document("channels").get()
     channels_data = ch_doc.to_dict() or {}
-    raw_channels: Iterable[dict] = channels_data.get("channelsData") or []
+    raw_channels: Iterable[Dict] = channels_data.get("channelsData") or []
 
     ch_created = 0
     ch_updated = 0
 
     for item in raw_channels:
-        if not isinstance(item, dict):
+        if not isinstance(item, Dict):
             continue
         ext_id = item.get("id")
         if not ext_id:
@@ -141,8 +141,8 @@ def sync_channels_and_categories_from_firestore(db: Session) -> dict:
             or item.get("streams")
             or item.get("stream")
         )
-        stream_urls: list[str] = []
-        if isinstance(stream_field, list):
+        stream_urls: List[str] = []
+        if isinstance(stream_field, List):
             stream_urls = [
                 s.strip() for s in stream_field if isinstance(s, str) and s.strip()
             ]
@@ -216,7 +216,7 @@ def _resolve_contents_url_from_firestore(client: firestore.Client) -> str | None
     doc = client.collection("app_config").document("contents").get()
     data = doc.to_dict() or {}
     nested = data.get("data") or {}
-    if isinstance(nested, dict):
+    if isinstance(nested, Dict):
         url = nested.get("url1")
         if url:
             return url
@@ -229,7 +229,7 @@ async def sync_vod_from_contents_json(
     track_progress: bool = False,
     fetch_tmdb: bool = True,
     only_type: str | None = None,
-) -> dict:
+) -> Dict:
     """Sincroniza conteúdos VOD (filmes/séries) a partir do JSON usado pelo app.
 
     Usa a mesma lógica do ContentsRepository Kotlin:
@@ -248,7 +248,7 @@ async def sync_vod_from_contents_json(
         resp.raise_for_status()
         items = resp.json()
 
-    if not isinstance(items, list):
+    if not isinstance(items, List):
         return {"error": "Contents JSON is not a list"}
 
     created = 0
@@ -275,15 +275,15 @@ async def sync_vod_from_contents_json(
     # Primeiro, identificamos quais tmdb_ids precisam de dados TMDB
     # (poster, backdrop e metadados ricos) e, opcionalmente, buscamos
     # essas informações em paralelo na TMDB.
-    tmdb_results: dict[int, dict] = {}
+    tmdb_results: Dict[int, Dict] = {}
 
     if fetch_tmdb:
-        tmdb_jobs: dict[tuple[int, str], None] = {}
+        tmdb_jobs: Dict[tuple[int, str], None] = {}
 
         logger.info("[sync_vod] scanning items to build TMDB jobs (incremental)")
 
         for item in items:
-            if not isinstance(item, dict):
+            if not isinstance(item, Dict):
                 continue
             tmdb_id = item.get("tmdbId") or item.get("tmdb_id")
             if not tmdb_id:
@@ -379,14 +379,14 @@ async def sync_vod_from_contents_json(
                         # Gêneros como string única
                         genres_list = tdata.get("genres") or []
                         genres_str = ""
-                        if isinstance(genres_list, list):
+                        if isinstance(genres_list, List):
                             genres_str = ", ".join(
                                 [g.get("name", "") for g in genres_list if g.get("name")]
                             )
 
                         # Duração: runtime (filmes) ou primeiro de episode_run_time (séries)
                         runtime = tdata.get("runtime") or 0
-                        if not runtime and isinstance(tdata.get("episode_run_time"), list):
+                        if not runtime and isinstance(tdata.get("episode_run_time"), List):
                             rt_list = tdata.get("episode_run_time") or []
                             runtime = rt_list[0] if rt_list else 0
                         try:
@@ -397,18 +397,18 @@ async def sync_vod_from_contents_json(
                         # Créditos: cast e diretor(es)
                         credits = (
                             tdata.get("credits") or {}
-                            if isinstance(tdata.get("credits"), dict)
+                            if isinstance(tdata.get("credits"), Dict)
                             else {}
                         )
                         cast_list = credits.get("cast") or []
                         crew_list = credits.get("crew") or []
                         cast_str = ""
                         director_str = ""
-                        if isinstance(cast_list, list) and cast_list:
+                        if isinstance(cast_list, List) and cast_list:
                             cast_str = ", ".join(
                                 [c.get("name", "") for c in cast_list[:10] if c.get("name")]
                             )
-                        if isinstance(crew_list, list):
+                        if isinstance(crew_list, List):
                             directors = [
                                 m.get("name", "")
                                 for m in crew_list
@@ -448,7 +448,7 @@ async def sync_vod_from_contents_json(
     # Agora processamos os itens sequencialmente, aplicando posters já buscados (se houver).
     logger.info("[sync_vod] applying items to DB (total=%d)", total_items)
     for idx, item in enumerate(items, start=1):
-        if not isinstance(item, dict):
+        if not isinstance(item, Dict):
             continue
 
         ext_id = str(item.get("id") or "") or None
@@ -463,7 +463,7 @@ async def sync_vod_from_contents_json(
         # Preferimos o primeiro item de "genres" (lista), depois "category" ou "genre" simples.
         category = item.get("category") or item.get("genre")
         genres = item.get("genres")
-        if (not category) and isinstance(genres, list) and genres:
+        if (not category) and isinstance(genres, List) and genres:
             category = genres[0]
         stream_url = (
             item.get("streamUrl")
@@ -496,7 +496,7 @@ async def sync_vod_from_contents_json(
 
         # Se temos tmdb_id e resultados TMDB, aplicamos tanto poster/backdrop
         # quanto metadados ricos no VOD.
-        tmdb_meta_for_item: dict | None = None
+        tmdb_meta_for_item: Dict | None = None
         if tmdb_id:
             try:
                 tid_int = int(tmdb_id)
@@ -601,7 +601,7 @@ async def sync_series_episodes_from_availability(
     db: Session,
     track_progress: bool = False,
     fetch_tmdb_details: bool = True,
-) -> dict:
+) -> Dict:
     """Sincroniza episódios de séries usando o endpoint externo de disponibilidade.
 
     O endpoint retorna um mapa de tmdb_id -> temporadas -> episódios. Para cada
@@ -621,12 +621,12 @@ async def sync_series_episodes_from_availability(
         resp.raise_for_status()
         data = resp.json() or {}
 
-    if not isinstance(data, dict):
+    if not isinstance(data, Dict):
         logger.error("[sync_episodes] availability payload is not a dict: %r", type(data))
         return {"error": "availability payload is not a dict"}
 
     series_map = data.get("series") or {}
-    if not isinstance(series_map, dict):
+    if not isinstance(series_map, Dict):
         logger.error("[sync_episodes] availability.series is not a dict: %r", type(series_map))
         return {"error": "availability.series is not a dict"}
 
@@ -657,9 +657,9 @@ async def sync_series_episodes_from_availability(
             "[sync_episodes] processing series tmdb_id=%s title=%s - found seasons: %s",
             tmdb_id,
             vod.title,
-            list(seasons.keys()) if isinstance(seasons, dict) else None,
+            list(seasons.keys()) if isinstance(seasons, Dict) else None,
         )
-        if not isinstance(seasons, dict):
+        if not isinstance(seasons, Dict):
             # Se não houver info de disponibilidade para essa série, removemos episódios antigos.
             deleted += (
                 db.query(models.Episode)
@@ -685,7 +685,7 @@ async def sync_series_episodes_from_availability(
             except (TypeError, ValueError):
                 continue
 
-            if not isinstance(episodes, list):
+            if not isinstance(episodes, List):
                 logger.warning(
                     "[sync_episodes] episodes for tmdb_id=%s season=%s is not a list (type=%r)",
                     tmdb_id,
@@ -695,7 +695,7 @@ async def sync_series_episodes_from_availability(
                 continue
 
             # Normaliza a lista de números de episódios desta temporada
-            ep_numbers: list[int] = []
+            ep_numbers: List[int] = []
             for ep in episodes:
                 try:
                     ep_numbers.append(int(ep))
@@ -704,7 +704,7 @@ async def sync_series_episodes_from_availability(
 
             # Busca metadados na TMDB em paralelo para esta temporada, com limite de
             # concorrência para não sobrecarregar a API.
-            ep_meta: dict[int, dict] = {}
+            ep_meta: Dict[int, Dict] = {}
             if fetch_tmdb_details and tmdb_id and ep_numbers:
                 sem = asyncio.Semaphore(25)
 

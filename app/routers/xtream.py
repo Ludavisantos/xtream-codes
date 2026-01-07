@@ -7,7 +7,7 @@ from fastapi.responses import (
 )
 from sqlalchemy.orm import Session
 from datetime import datetime
-from typing import Union, List
+from typing import Union, List, Optional
 import asyncio
 
 import httpx
@@ -71,7 +71,7 @@ def _auth_user(username: str, password: str, db: Session):
     return line
 
 
-def _xtream_error(status: str, reason: str | None = None):
+def _xtream_error(status: str, reason: Optional[str] = None):
     payload = {
         "user_info": {
             "auth": 0,
@@ -89,7 +89,7 @@ async def player_api(
     request: Request,
     username: str,
     password: str,
-    action: str | None = None,
+    action: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     user = _auth_user(username, password, db)

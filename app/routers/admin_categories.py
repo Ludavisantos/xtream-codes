@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import List
 
 from ..database import get_db
 from .. import models, schemas
@@ -23,7 +24,7 @@ def create_category(
     db.commit()
     db.refresh(db_cat)
     return db_cat
-@router.get("/", response_model=list[schemas.CategoryOut])
+@router.get("/", response_model=List[schemas.CategoryOut])
 def list_categories(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
