@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body, Response
 from sqlalchemy.orm import Session
 import logging
 from datetime import datetime
+from typing import List
 
 from ..database import get_db
 from .. import models, schemas
@@ -200,7 +201,7 @@ def create_user(
         raise HTTPException(status_code=500, detail=f"create_user error: {e!r}")
 
 
-@router.get("/", response_model=list[schemas.UserOut])
+@router.get("/", response_model=List[schemas.UserOut])
 def list_users(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
