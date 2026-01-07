@@ -36,19 +36,25 @@
 <div id="admin-wrapper" class="admin-wrapper hidden">
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#">Xtream Python</a>
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item"><a class="nav-link active" data-section="dashboard" href="#">Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" data-section="users" href="#">Usuários</a></li>
-            <li class="nav-item"><a class="nav-link" data-section="lines" href="#">Linhas IPTV</a></li>
-            <li class="nav-item"><a class="nav-link" data-section="tests" href="#">Testes IPTV</a></li>
-            <li class="nav-item"><a class="nav-link" data-section="categories" href="#">Categorias</a></li>
-            <li class="nav-item"><a class="nav-link" data-section="channels" href="#">Canais</a></li>
-            <li class="nav-item"><a class="nav-link" data-section="vod" href="#">VOD &amp; Séries</a></li>
-        </ul>
-        <div class="d-flex align-items-center gap-3">
-            <div id="navbar-user-info" class="text-light small"></div>
-            <button id="btn-logout" class="btn btn-outline-light btn-sm" type="button">Sair</button>
+        <a class="navbar-brand" href="#"><span id="panel-name"></span></a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Alternar navegação">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="mainNavbar">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link active" data-section="dashboard" href="#">Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" data-section="users" href="#">Usuários</a></li>
+                <li class="nav-item"><a class="nav-link" data-section="lines" href="#">Linhas IPTV</a></li>
+                <li class="nav-item"><a class="nav-link" data-section="tests" href="#">Testes IPTV</a></li>
+                <li class="nav-item"><a class="nav-link" data-section="categories" href="#">Categorias</a></li>
+                <li class="nav-item"><a class="nav-link" data-section="channels" href="#">Canais</a></li>
+                <li class="nav-item"><a class="nav-link" data-section="vod" href="#">VOD &amp; Séries</a></li>
+                <li class="nav-item"><a class="nav-link" data-section="settings" href="#">Configurações</a></li>
+            </ul>
+            <div class="d-flex align-items-center gap-3 mt-2 mt-lg-0">
+                <div id="navbar-user-info" class="text-light small text-lg-end"></div>
+                <button id="btn-logout" class="btn btn-outline-light btn-sm" type="button">Sair</button>
+            </div>
         </div>
     </div>
 </nav>
@@ -56,6 +62,9 @@
     <!-- Dashboard -->
     <section id="section-dashboard" class="admin-section">
         <h2>Dashboard / Sincronização</h2>
+        <div id="server-message-box" class="alert alert-warning d-none mt-2">
+            <span id="server-message-text"></span>
+        </div>
         <div class="row mb-3">
             <div class="col-md-6 mb-2">
                 <div class="card">
@@ -94,13 +103,15 @@
 
     <!-- Usuários de Painel (admins/revendedores) -->
     <section id="section-users" class="admin-section d-none">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2>Usuários de Painel</h2>
-            <button class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#user-form-wrapper" type="button">Novo usuário</button>
-        </div>
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h2 class="mb-0">Usuários de Painel</h2>
+                <button class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#user-form-wrapper" type="button">Novo usuário</button>
+            </div>
+            <div class="card-body">
         <div id="user-form-wrapper" class="collapse mb-3">
-            <div class="card">
-                <div class="card-body">
+            <div>
+                <div>
                     <form id="form-user" class="row g-2">
                         <div class="col-md-3">
                             <label class="form-label">Username</label>
@@ -136,6 +147,7 @@
                 </div>
             </div>
         </div>
+        <div class="table-responsive">
         <table class="table table-striped table-sm" id="table-users">
             <thead>
                 <tr>
@@ -152,26 +164,32 @@
             </thead>
             <tbody></tbody>
         </table>
+        </div>
+            </div>
+        </div>
     </section>
 
     <!-- Linhas IPTV (usuários finais) -->
     <section id="section-lines" class="admin-section d-none">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2>Linhas IPTV</h2>
-            <div class="d-flex gap-2">
-                <button class="btn btn-primary btn-sm" id="btn-open-line-create" type="button">Adicionar Novo</button>
-                <div class="btn-group">
-                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        Ações
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><button class="dropdown-item" id="bulk-delete-lines" type="button">Excluir selecionados</button></li>
-                        <li><button class="dropdown-item" id="bulk-renew-lines" type="button">Renovar +30 dias</button></li>
-                        <li><button class="dropdown-item" id="bulk-change-owner-lines" type="button">Alterar revenda</button></li>
-                    </ul>
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h2 class="mb-0">Linhas IPTV</h2>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-sm" id="btn-open-line-create" type="button">Adicionar Novo</button>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            Ações
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item" id="bulk-delete-lines" type="button">Excluir selecionados</button></li>
+                            <li><button class="dropdown-item" id="bulk-renew-lines" type="button">Renovar +30 dias</button></li>
+                            <li><button class="dropdown-item" id="bulk-change-owner-lines" type="button">Alterar revenda</button></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
-        </div>
+            <div class="card-body">
+        <div class="table-responsive">
         <table class="table table-striped table-sm" id="table-lines-users">
             <thead>
                 <tr>
@@ -190,15 +208,21 @@
             </thead>
             <tbody></tbody>
         </table>
+        </div>
+            </div>
+        </div>
 
     </section>
 
     <!-- Testes IPTV -->
     <section id="section-tests" class="admin-section d-none">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2>Testes IPTV</h2>
-            <button class="btn btn-outline-primary btn-sm" id="btn-line-test-3h" type="button">Criar teste 3h</button>
-        </div>
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h2 class="mb-0">Testes IPTV</h2>
+                <button class="btn btn-outline-primary btn-sm" id="btn-line-test-3h" type="button">Criar teste 3h</button>
+            </div>
+            <div class="card-body">
+        <div class="table-responsive">
         <table class="table table-striped table-sm" id="table-lines-tests">
             <thead>
                 <tr>
@@ -212,6 +236,9 @@
             </thead>
             <tbody></tbody>
         </table>
+        </div>
+            </div>
+        </div>
     </section>
 
     <!-- VOD & Séries -->
@@ -220,6 +247,7 @@
             <h2>VOD &amp; Séries</h2>
         </div>
         <p class="text-muted small">Lista de conteúdos VOD (filmes e séries) sincronizados. A edição detalhada é feita via Firestore/contents.json; aqui você pode apenas visualizar e ativar/desativar itens.</p>
+        <div class="table-responsive">
         <table class="table table-striped table-sm" id="table-vod">
             <thead>
                 <tr>
@@ -264,6 +292,7 @@
                 </div>
             </div>
         </div>
+        <div class="table-responsive">
         <table class="table table-striped table-sm" id="table-categories">
             <thead>
                 <tr>
@@ -326,6 +355,7 @@
                 </div>
             </div>
         </div>
+        <div class="table-responsive">
         <table class="table table-striped table-sm" id="table-channels">
             <thead>
                 <tr>
@@ -339,6 +369,30 @@
             </thead>
             <tbody></tbody>
         </table>
+        </div>
+    </section>
+
+    <!-- Configurações do painel -->
+    <section id="section-settings" class="admin-section d-none">
+        <div class="card mb-3" id="panel-settings-card">
+            <div class="card-body">
+                <h2 class="h4 mb-3">Configurações do painel</h2>
+                <p class="card-text small text-muted mb-3">Altere o nome exibido na barra superior e a mensagem do servidor mostrada no Dashboard. Apenas administradores podem salvar alterações.</p>
+                <form id="form-panel-settings" class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Nome do painel</label>
+                        <input type="text" class="form-control" id="input-panel-name" placeholder="Ex.: Xtream Painel Cinetv">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Mensagem do servidor</label>
+                        <input type="text" class="form-control" id="input-server-message" placeholder="Ex.: Servidor em manutenção hoje às 23h">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100" id="btn-save-panel-settings">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </section>
 </div>
 <!-- Modal para editar validade do usuário -->

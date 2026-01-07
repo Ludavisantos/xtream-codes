@@ -600,10 +600,19 @@ async def get_php(
     http://server/get.php?username=U&password=P&type=m3u&output=ts
     """
 
+    # Gera um nome de arquivo amigável contendo o username, removendo caracteres não alfanuméricos.
+    safe_username = "".join(c for c in username if c.isalnum()) or "user"
+    filename = f"playlist_{safe_username}.m3u"
+
     user = _auth_user(username, password, db)
     if not user:
         # Alguns painéis retornam texto vazio ou erro simples; aqui vamos retornar M3U vazio.
-        return PlainTextResponse("#EXTM3U\n", status_code=200)
+        return PlainTextResponse(
+            "#EXTM3U\n",
+            status_code=200,
+            media_type="application/x-mpegurl",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
 
     # Só suportamos M3U por enquanto
     if type.lower() != "m3u":
@@ -648,9 +657,10 @@ async def get_php(
     for vod in vod_movies:
         group_title = vod.category or "Filmes"
         tvg_logo = vod.poster_url or ""
-        stream_url = vod.stream_url or ""
-        if not stream_url:
-            continue
+
+        # Em vez de expor a URL final do CDN, usamos o endpoint /movie/
+        # compatível com Xtream, que faz o proxy/stream do conteúdo.
+        stream_url = f"{base_url}/movie/{username}/{password}/{vod.id}.mp4"
 
         extinf = (
             f"#EXTINF:-1 tvg-id=\"vod-{vod.id}\" tvg-logo=\"{tvg_logo}\" "
@@ -671,7 +681,9 @@ async def get_php(
         title = ep.title
         logo = ep.poster_url or ""
         group_title = ep.category or "Series"
-        ep_url = ep.stream_url
+
+        # Também mascaramos o link final dos episódios usando /series/...
+        ep_url = f"{base_url}/series/{username}/{password}/{ep.id}.mp4"
 
         extinf = (
             f"#EXTINF:-1 tvg-name=\"{title}\" tvg-logo=\"{logo}\" "
@@ -680,7 +692,14 @@ async def get_php(
         lines.append(extinf)
         lines.append(ep_url)
 
-    return "\n".join(lines) + "\n"
+    content = "\n".join(lines) + "\n"
+
+    # Força o navegador a baixar a playlist em vez de exibir como texto.
+    return PlainTextResponse(
+        content,
+        media_type="application/x-mpegurl",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.get("/live/{username}/{password}/{stream_id}")
@@ -772,16 +791,8 @@ async def series_redirect(
     if not ep or not ep.is_available or not ep.stream_url:
         raise HTTPException(status_code=404, detail="Episode not found")
 
-    # Proxy simples: buscamos o vídeo do CDN e streamamos para o cliente.
-    # Isso evita o 302 que alguns apps não lidam bem.
-    async def iter_stream():
-        async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("GET", ep.stream_url) as resp:
-                resp.raise_for_status()
-                async for chunk in resp.aiter_bytes():
-                    yield chunk
-
-    return StreamingResponse(iter_stream(), media_type="video/mp4")
+    # Apenas redireciona para a URL final do episódio.
+    return RedirectResponse(url=ep.stream_url, status_code=302)
 
 
 @router.get("/movie/{username}/{password}/{stream_id}")
@@ -820,13 +831,5 @@ async def movie_redirect(
     if not vod or not vod.stream_url:
         raise HTTPException(status_code=404, detail="Movie not found")
 
-    # Proxy simples também para filmes: buscamos o vídeo do CDN e streamamos
-    # para o cliente, evitando problemas com 302 em alguns players.
-    async def iter_stream():
-        async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("GET", vod.stream_url) as resp:
-                resp.raise_for_status()
-                async for chunk in resp.aiter_bytes():
-                    yield chunk
-
-    return StreamingResponse(iter_stream(), media_type="video/mp4")
+    # Apenas redireciona para a URL final do filme.
+    return RedirectResponse(url=vod.stream_url, status_code=302)

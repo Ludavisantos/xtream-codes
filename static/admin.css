@@ -1,3 +1,7 @@
+body {
+  background-color: #eef1f7;
+}
+
 .admin-section { display: block; }
 .admin-section.d-none { display: none !important; }
 pre { max-height: 200px; overflow: auto; }
@@ -23,4 +27,94 @@ pre { max-height: 200px; overflow: auto; }
 /* Esconde a tela de login quando o JS adiciona a classe "hidden" após login bem-sucedido */
 .login-section.hidden {
   display: none !important;
+}
+
+/* Aparência geral dos cards do painel */
+.container.mb-4 {
+  margin-top: 1rem;
+}
+
+.card {
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.16);
+  border: 1px solid #e0e7ff;
+  background: #ffffff;
+}
+
+.card-header {
+  background: linear-gradient(120deg, #4f46e5, #7c3aed);
+  border-bottom: none;
+  color: #f9fafb;
+}
+
+.card-header h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* Botões dentro do cabeçalho dos cards (ex: "Ações") */
+.card-header .btn-outline-secondary {
+  color: #e5e7eb;
+  border-color: rgba(249, 250, 251, 0.7);
+  background-color: transparent;
+}
+
+.card-header .btn-outline-secondary:hover,
+.card-header .btn-outline-secondary:focus {
+  color: #111827;
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+/* Botões principais com a mesma paleta dos cards */
+.btn-primary {
+  background-color: #4f46e5;
+  border-color: #4338ca;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: #4338ca;
+  border-color: #3730a3;
+}
+
+.btn-outline-primary {
+  color: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  background-color: #4f46e5;
+  color: #ffffff;
+}
+
+/* Navbar com leve roxo bem escuro para combinar */
+.navbar.bg-dark {
+  background: linear-gradient(120deg, #020617, #111827) !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+/* Ajustes gerais para telas pequenas */
+@media (max-width: 576px) {
+  body {
+    font-size: 0.95rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .card-body {
+    padding: 0.85rem;
+  }
+
+  .table-sm > :not(caption) > * > * {
+    padding: 0.35rem 0.5rem;
+  }
 }

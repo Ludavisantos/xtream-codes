@@ -3,7 +3,17 @@ import logging
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from .database import Base, engine
-from .routers import admin_users, xtream, admin_categories, admin_channels, admin_sync, admin_auth, admin_vod, admin_lines
+from .routers import (
+    admin_users,
+    xtream,
+    admin_categories,
+    admin_channels,
+    admin_sync,
+    admin_auth,
+    admin_vod,
+    admin_lines,
+    admin_settings,
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -31,6 +41,7 @@ app.include_router(admin_channels.router)
 app.include_router(admin_sync.router)
 app.include_router(admin_vod.router)
 app.include_router(admin_lines.router)
+app.include_router(admin_settings.router)
 app.include_router(xtream.router)
 
 

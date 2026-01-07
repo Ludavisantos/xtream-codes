@@ -9,6 +9,7 @@
 
   const sectionLogin = document.getElementById("section-login");
   const adminWrapper = document.getElementById("admin-wrapper");
+  const panelNameEl = document.getElementById("panel-name");
   const navbarUserInfo = document.getElementById("navbar-user-info");
   // Dashboard sync elements
   const btnSyncChannels = document.getElementById("btn-sync-channels");
@@ -27,6 +28,12 @@
   const messageModal = messageModalEl ? new bootstrap.Modal(messageModalEl) : null;
   const messageModalTitle = document.getElementById("messageModalTitle");
   const messageModalBody = document.getElementById("messageModalBody");
+  const serverMessageBox = document.getElementById("server-message-box");
+  const serverMessageText = document.getElementById("server-message-text");
+  const panelSettingsCard = document.getElementById("panel-settings-card");
+  const formPanelSettings = document.getElementById("form-panel-settings");
+  const inputPanelName = document.getElementById("input-panel-name");
+  const inputServerMessage = document.getElementById("input-server-message");
 
   function parseJwt(token) {
     const parts = (token || "").split(".");
@@ -301,6 +308,43 @@
       }
     });
   }
+
+  function resetNavVisibility() {
+    document.querySelectorAll(".navbar-nav .nav-link").forEach((el) => {
+      const li = el.closest("li");
+      if (li) li.style.display = "";
+    });
+  }
+
+  function clearLoadedData() {
+    if (navbarUserInfo) {
+      navbarUserInfo.textContent = "";
+    }
+    const usersBody = document.querySelector("#table-users tbody");
+    const linesUsersBodyEl = document.querySelector("#table-lines-users tbody");
+    const linesTestsBodyEl = document.querySelector("#table-lines-tests tbody");
+    const channelsBodyEl = document.querySelector("#table-channels tbody");
+    const vodBodyEl = document.querySelector("#table-vod tbody");
+
+    if (usersBody) usersBody.innerHTML = "";
+    if (linesUsersBodyEl) linesUsersBodyEl.innerHTML = "";
+    if (linesTestsBodyEl) linesTestsBodyEl.innerHTML = "";
+    if (channelsBodyEl) channelsBodyEl.innerHTML = "";
+    if (vodBodyEl) vodBodyEl.innerHTML = "";
+  }
+
+  function resetSessionState() {
+    accessToken = null;
+    currentUserRole = "admin";
+    currentUserId = null;
+    currentUsername = null;
+    clearLoadedData();
+    resetNavVisibility();
+    if (panelNameEl) panelNameEl.textContent = "Xtream Python";
+    if (serverMessageBox) {
+      serverMessageBox.classList.add("d-none");
+    }
+  }
   function authHeaders() {
     if (!accessToken) return {};
     return { Authorization: "Bearer " + accessToken };
@@ -330,6 +374,46 @@
     return await res.json();
   }
 
+  async function loadPanelSettings() {
+    if (!accessToken) return;
+    try {
+      const data = await apiRequest("GET", "/admin/settings/");
+      if (panelNameEl && data.panel_name) {
+        panelNameEl.textContent = data.panel_name;
+      }
+      if (data.panel_name) {
+        document.title = `${data.panel_name} - Painel Xtream`;
+      }
+      if (inputPanelName) {
+        inputPanelName.value = data.panel_name || "";
+      }
+      const msg = data.server_message || "";
+      if (serverMessageBox && serverMessageText) {
+        if (msg) {
+          serverMessageText.textContent = msg;
+          serverMessageBox.classList.remove("d-none");
+        } else {
+          serverMessageText.textContent = "";
+          serverMessageBox.classList.add("d-none");
+        }
+      }
+      if (inputServerMessage) {
+        inputServerMessage.value = msg;
+      }
+
+      // Apenas admins podem ver o card de configurações
+      if (panelSettingsCard) {
+        if (currentUserRole === "admin") {
+          panelSettingsCard.classList.remove("d-none");
+        } else {
+          panelSettingsCard.classList.add("d-none");
+        }
+      }
+    } catch (err) {
+      console.warn("Erro ao carregar configurações do painel", err);
+    }
+  }
+
   // LOGIN
   const formLogin = document.getElementById("form-login");
   const loginError = document.getElementById("login-error");
@@ -346,6 +430,9 @@
       body.append("password", password);
 
       try {
+        // Sempre reseta qualquer estado antigo antes de aplicar o novo login
+        resetSessionState();
+
         const res = await fetch(baseUrl + "/admin/login", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -382,10 +469,11 @@
           showSection("dashboard");
           loadUsers();
         } else {
-          // Esconde seções que são apenas para admin (inclusive Dashboard)
+          // Esconde seções que são apenas para admin (inclusive Dashboard e Configurações)
+          resetNavVisibility();
           document
             .querySelectorAll(
-              '[data-section="dashboard"], [data-section="users"], [data-section="categories"], [data-section="channels"], [data-section="vod"]'
+              '[data-section="dashboard"], [data-section="users"], [data-section="categories"], [data-section="channels"], [data-section="vod"], [data-section="settings"]'
             )
             .forEach((el) => {
               const li = el.closest("li");
@@ -394,8 +482,7 @@
           showSection("lines");
         }
 
-        loadLines();
-        loadCurrentUserInfo();
+        await Promise.all([loadLines(), loadCurrentUserInfo(), loadPanelSettings()]);
       } catch (err) {
         loginError.textContent = err.message;
         loginError.style.display = "block";
@@ -434,7 +521,7 @@
   const btnLogout = document.getElementById("btn-logout");
   if (btnLogout) {
     btnLogout.addEventListener("click", () => {
-      accessToken = null;
+      resetSessionState();
       try {
         localStorage.removeItem("xtream_panel_token");
       } catch (_) {}
@@ -734,6 +821,9 @@
       if (currentUserRole === "vendor" && btnLineTest3h) {
         btnLineTest3h.classList.remove("d-none");
       }
+      if (panelSettingsCard && currentUserRole !== "admin") {
+        panelSettingsCard.classList.add("d-none");
+      }
     } catch (err) {
       console.warn("Erro ao carregar dados do usuário atual", err);
     }
@@ -931,6 +1021,11 @@
     }
   }
 
+  // Helper para carregar todas as listas de linhas (usuários finais e testes)
+  async function loadLines() {
+    await Promise.allSettled([loadLinesUsers(), loadLinesTests()]);
+  }
+
   // Restaura sessão a partir do token salvo, se possível
   (async function restoreSession() {
     let stored = null;
@@ -959,9 +1054,10 @@
         showSection("dashboard");
         loadUsers();
       } else {
+        resetNavVisibility();
         document
           .querySelectorAll(
-            '[data-section="dashboard"], [data-section="users"], [data-section="categories"], [data-section="channels"], [data-section="vod"]'
+            '[data-section="dashboard"], [data-section="users"], [data-section="categories"], [data-section="channels"], [data-section="vod"], [data-section="settings"]'
           )
           .forEach((el) => {
             const li = el.closest("li");
@@ -970,9 +1066,7 @@
         showSection("lines");
       }
 
-      loadLinesUsers();
-      loadLinesTests();
-      loadCurrentUserInfo();
+      await Promise.all([loadLines(), loadCurrentUserInfo(), loadPanelSettings()]);
     } catch (err) {
       // token inválido, limpa e volta ao login
       accessToken = null;
@@ -1129,6 +1223,50 @@
           loadLinesTests();
         })
         .catch((err) => showMessageModal("error", "Erro ao criar teste: " + err.message));
+    });
+  }
+
+  if (formPanelSettings) {
+    formPanelSettings.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!accessToken || currentUserRole !== "admin") {
+        showMessageModal("error", "Apenas administradores podem alterar as configurações do painel.");
+        return;
+      }
+
+      const payload = {
+        panel_name: inputPanelName ? inputPanelName.value : "",
+        server_message: inputServerMessage ? inputServerMessage.value : "",
+      };
+
+      apiRequest("PUT", "/admin/settings/", payload)
+        .then((data) => {
+          if (panelNameEl && data.panel_name) {
+            panelNameEl.textContent = data.panel_name;
+          }
+          if (data.panel_name) {
+            document.title = `${data.panel_name} - Painel Xtream`;
+          }
+          if (serverMessageBox && serverMessageText) {
+            const msg = data.server_message || "";
+            if (msg) {
+              serverMessageText.textContent = msg;
+              serverMessageBox.classList.remove("d-none");
+            } else {
+              serverMessageText.textContent = "";
+              serverMessageBox.classList.add("d-none");
+            }
+          }
+
+          const panelLabel = data.panel_name || "Painel";
+          showMessageModal(
+            "info",
+            `Configurações do painel "${panelLabel}" foram salvas com sucesso.`,
+          );
+        })
+        .catch((err) => {
+          showMessageModal("error", "Erro ao salvar configurações do painel: " + err.message);
+        });
     });
   }
 })();

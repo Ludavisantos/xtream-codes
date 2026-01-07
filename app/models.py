@@ -131,3 +131,15 @@ class IptvLine(Base):
 
     owner = relationship("User", foreign_keys=[owner_id])
 
+
+class PanelSettings(Base):
+    """Configurações gerais do painel (nome, mensagem do servidor etc.).
+
+    Mantemos apenas uma linha nesta tabela.
+    """
+
+    __tablename__ = "panel_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    panel_name = Column(String, default="Xtream Python")
+    server_message = Column(String, nullable=True)
