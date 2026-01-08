@@ -29,6 +29,12 @@
   const messageModal = messageModalEl ? new bootstrap.Modal(messageModalEl) : null;
   const messageModalTitle = document.getElementById("messageModalTitle");
   const messageModalBody = document.getElementById("messageModalBody");
+  const btnMessageCopy = document.getElementById("btn-message-copy");
+  const confirmModalEl = document.getElementById("confirmModal");
+  const confirmModal = confirmModalEl ? new bootstrap.Modal(confirmModalEl) : null;
+  const confirmModalTitle = document.getElementById("confirmModalTitle");
+  const confirmModalBody = document.getElementById("confirmModalBody");
+  const confirmModalOk = document.getElementById("confirmModalOk");
   const serverMessageBox = document.getElementById("server-message-box");
   const serverMessageText = document.getElementById("server-message-text");
   const panelSettingsCard = document.getElementById("panel-settings-card");
@@ -328,6 +334,11 @@
         el.classList.add("active");
       }
     });
+
+    // Persiste a última seção visitada para restaurar após reload
+    try {
+      localStorage.setItem("xtream_panel_section", id);
+    } catch (_) {}
   }
 
   function resetNavVisibility() {
@@ -663,11 +674,14 @@
 
       // Botões de exclusão de usuário
       document.querySelectorAll(".btn-user-del").forEach((btn) => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           const id = btn.getAttribute("data-id");
           if (!id) return;
 
-          if (!confirm("Tem certeza que deseja excluir este usuário do painel?")) return;
+          const ok = await showConfirmDialog("Tem certeza que deseja excluir este usuário do painel?", {
+            title: "Excluir usuário",
+          });
+          if (!ok) return;
 
           apiRequest("DELETE", `/admin/users/${id}`)
             .then(() => {
@@ -704,6 +718,40 @@
     });
   }
 
+  if (btnUserPanelSave) {
+    btnUserPanelSave.addEventListener("click", () => {
+      if (!editingUserPanelId) return;
+
+      const payload = {};
+
+      if (modalUserRole && modalUserRole.value) {
+        payload.role = modalUserRole.value.toLowerCase();
+      }
+
+      if (modalUserPanelExpires) {
+        const val = modalUserPanelExpires.value.trim();
+        payload.panel_expires_at = val || null;
+      }
+
+      if (modalUserPanelCredits) {
+        const creditsTxt = modalUserPanelCredits.value.trim();
+        if (creditsTxt !== "") {
+          payload.panel_credits = parseInt(creditsTxt, 10);
+        }
+      }
+
+      apiRequest("PUT", `/admin/users/${editingUserPanelId}/panel`, payload)
+        .then(() => {
+          if (userPanelModal) userPanelModal.hide();
+          editingUserPanelId = null;
+          loadUsers();
+        })
+        .catch((err) => {
+          showMessageModal("error", "Erro ao salvar dados de painel: " + err.message);
+        });
+    });
+  }
+
   // ===== Linhas IPTV =====
   const formLine = document.getElementById("form-line");
   const tableLinesUsersBody = document.querySelector("#table-lines-users tbody");
@@ -712,6 +760,9 @@
   const bulkRenewLinesBtn = document.getElementById("bulk-renew-lines");
   const bulkChangeOwnerLinesBtn = document.getElementById("bulk-change-owner-lines");
   const tableLinesTestsBody = document.querySelector("#table-lines-tests tbody");
+  const testsSelectAll = document.getElementById("tests-select-all");
+  const bulkDeleteTestsBtn = document.getElementById("bulk-delete-tests");
+  const bulkPromoteTestsBtn = document.getElementById("bulk-promote-tests");
   const lineEditModalEl = document.getElementById("lineEditModal");
   const lineEditModal = lineEditModalEl ? new bootstrap.Modal(lineEditModalEl) : null;
   const modalLinePassword = null; // senha não é mais editável
@@ -803,6 +854,7 @@
           if (createPhoneInput) createPhoneInput.value = "";
           if (createEmailInput) createEmailInput.value = "";
           loadLinesUsers();
+          showLineCredentials(username, password, false);
         })
         .catch((err) => showMessageModal("error", "Erro ao criar linha: " + err.message));
     });
@@ -881,6 +933,11 @@
               data-active="${ln.is_active ? "1" : "0"}"
               data-maxconn="${ln.max_connections}"
             >Editar</button>
+            <button
+              class="btn btn-sm btn-outline-secondary btn-line-cred"
+              data-username="${ln.username}"
+              data-password="${ln.password}"
+            >Ver dados</button>
             <button class="btn btn-sm btn-outline-danger btn-line-del" data-id="${ln.id}">X</button>
           </td>
         `;
@@ -918,14 +975,25 @@
       });
 
       tableLinesUsersBody.querySelectorAll(".btn-line-del").forEach((btn) => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           const id = btn.getAttribute("data-id");
-          if (!confirm("Remover esta linha?")) return;
+          const ok = await showConfirmDialog("Remover esta linha?", { title: "Remover linha" });
+          if (!ok) return;
           apiRequest("DELETE", `/admin/lines/${id}`)
             .then(() => {
               loadLinesUsers();
             })
             .catch((err) => showMessageModal("error", "Erro ao remover linha: " + err.message));
+        });
+      });
+
+      // Botão para ver dados (credenciais) de cada linha
+      tableLinesUsersBody.querySelectorAll(".btn-line-cred").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const username = btn.getAttribute("data-username") || "";
+          const password = btn.getAttribute("data-password") || "";
+          if (!username || !password) return;
+          showLineCredentials(username, password, false);
         });
       });
 
@@ -954,11 +1022,23 @@
     return ids;
   }
 
+  // Seleção múltipla para testes IPTV
+  function getSelectedTestIds() {
+    const ids = [];
+    if (!tableLinesTestsBody) return ids;
+    tableLinesTestsBody.querySelectorAll(".test-select:checked").forEach((cb) => {
+      const id = cb.getAttribute("data-id");
+      if (id) ids.push(parseInt(id, 10));
+    });
+    return ids;
+  }
+
   if (bulkDeleteLinesBtn) {
-    bulkDeleteLinesBtn.addEventListener("click", () => {
+    bulkDeleteLinesBtn.addEventListener("click", async () => {
       const ids = getSelectedLineIds();
       if (!ids.length) return;
-      if (!confirm("Excluir as linhas selecionadas?")) return;
+      const ok = await showConfirmDialog("Excluir as linhas selecionadas?", { title: "Excluir linhas" });
+      if (!ok) return;
       apiRequest("POST", "/admin/lines/bulk/delete", ids)
         .then(() => loadLinesUsers())
         .catch((err) => showMessageModal("error", "Erro ao excluir linhas: " + err.message));
@@ -966,10 +1046,11 @@
   }
 
   if (bulkRenewLinesBtn) {
-    bulkRenewLinesBtn.addEventListener("click", () => {
+    bulkRenewLinesBtn.addEventListener("click", async () => {
       const ids = getSelectedLineIds();
       if (!ids.length) return;
-      if (!confirm("Renovar as linhas selecionadas por +30 dias?")) return;
+      const ok = await showConfirmDialog("Renovar as linhas selecionadas por +30 dias?", { title: "Renovar linhas" });
+      if (!ok) return;
       apiRequest("POST", "/admin/lines/bulk/renew?months=1", ids)
         .then(() => loadLinesUsers())
         .catch((err) => showMessageModal("error", "Erro ao renovar linhas: " + err.message));
@@ -992,6 +1073,44 @@
     });
   }
 
+  if (bulkDeleteTestsBtn) {
+    bulkDeleteTestsBtn.addEventListener("click", async () => {
+      const ids = getSelectedTestIds();
+      if (!ids.length) return;
+      const ok = await showConfirmDialog("Excluir os testes selecionados?", { title: "Excluir testes" });
+      if (!ok) return;
+
+      for (const id of ids) {
+        try {
+          await apiRequest("DELETE", `/admin/lines/${id}`);
+        } catch (err) {
+          console.error("Erro ao excluir teste", id, err);
+        }
+      }
+      loadLinesTests();
+    });
+  }
+
+  if (bulkPromoteTestsBtn) {
+    bulkPromoteTestsBtn.addEventListener("click", async () => {
+      const ids = getSelectedTestIds();
+      if (!ids.length) return;
+      const ok = await showConfirmDialog("Promover os testes selecionados para linhas?", { title: "Promover testes" });
+      if (!ok) return;
+
+      for (const id of ids) {
+        try {
+          await apiRequest("POST", `/admin/lines/${id}/promote`);
+        } catch (err) {
+          console.error("Erro ao promover teste", id, err);
+        }
+      }
+
+      loadLinesUsers();
+      loadLinesTests();
+    });
+  }
+
   async function loadLinesTests() {
     if (!tableLinesTestsBody || !accessToken) return;
     tableLinesTestsBody.innerHTML = "";
@@ -1001,12 +1120,15 @@
         const tr = document.createElement("tr");
         const expiresAt = formatIsoDateTime(ln.expires_at);
         tr.innerHTML = `
+          <td><input type="checkbox" class="test-select" data-id="${ln.id}"></td>
           <td>${ln.id}</td>
           <td>${ln.username}</td>
+          <td>${ln.password}</td>
           <td>${ln.owner_id}</td>
           <td>${expiresAt}</td>
           <td>${ln.max_connections}</td>
           <td>
+            <button class="btn btn-sm btn-outline-secondary btn-line-cred-test" data-username="${ln.username}" data-password="${ln.password}">Ver dados</button>
             <button class="btn btn-sm btn-outline-success btn-line-promote" data-id="${ln.id}">Promover</button>
             <button class="btn btn-sm btn-outline-danger btn-line-del" data-id="${ln.id}">X</button>
           </td>
@@ -1015,8 +1137,13 @@
       });
 
       tableLinesTestsBody.querySelectorAll(".btn-line-promote").forEach((btn) => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           const id = btn.getAttribute("data-id");
+          const ok = await showConfirmDialog("Promover este teste para uma linha definitiva?", {
+            title: "Promover teste",
+          });
+          if (!ok) return;
+
           apiRequest("POST", `/admin/lines/${id}/promote`)
             .then(() => {
               loadLinesUsers();
@@ -1027,9 +1154,10 @@
       });
 
       tableLinesTestsBody.querySelectorAll(".btn-line-del").forEach((btn) => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           const id = btn.getAttribute("data-id");
-          if (!confirm("Remover este teste?")) return;
+          const ok = await showConfirmDialog("Remover este teste?", { title: "Remover teste" });
+          if (!ok) return;
           apiRequest("DELETE", `/admin/lines/${id}`)
             .then(() => {
               loadLinesTests();
@@ -1037,6 +1165,25 @@
             .catch((err) => showMessageModal("error", "Erro ao remover teste: " + err.message));
         });
       });
+
+      // Botão para ver dados (credenciais) de cada teste
+      tableLinesTestsBody.querySelectorAll(".btn-line-cred-test").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const username = btn.getAttribute("data-username") || "";
+          const password = btn.getAttribute("data-password") || "";
+          if (!username || !password) return;
+          showLineCredentials(username, password, true);
+        });
+      });
+      if (testsSelectAll) {
+        testsSelectAll.checked = false;
+        testsSelectAll.addEventListener("change", () => {
+          const checked = testsSelectAll.checked;
+          tableLinesTestsBody.querySelectorAll(".test-select").forEach((cb) => {
+            cb.checked = checked;
+          });
+        });
+      }
     } catch (err) {
       console.error("Erro ao carregar testes IPTV", err);
     }
@@ -1071,10 +1218,23 @@
       sectionLogin.classList.add("hidden");
       adminWrapper.classList.remove("hidden");
 
+      // Determina a seção inicial com base na última usada, respeitando permissões
+      let lastSection = null;
+      try {
+        lastSection = localStorage.getItem("xtream_panel_section");
+      } catch (_) {
+        lastSection = null;
+      }
+
       if (currentUserRole === "admin") {
-        showSection("dashboard");
-        loadUsers();
+        const allowed = ["dashboard", "users", "lines", "tests", "categories", "channels", "vod", "settings"];
+        const initial = allowed.includes(lastSection) ? lastSection : "dashboard";
+        showSection(initial);
+        if (initial === "users") {
+          loadUsers();
+        }
       } else {
+        // vendor: esconde seções somente de admin
         resetNavVisibility();
         document
           .querySelectorAll(
@@ -1084,7 +1244,10 @@
             const li = el.closest("li");
             if (li) li.style.display = "none";
           });
-        showSection("lines");
+
+        const allowedVendor = ["lines", "tests"]; // sections liberadas para revendedor
+        const initialVendor = allowedVendor.includes(lastSection) ? lastSection : "lines";
+        showSection(initialVendor);
       }
 
       await Promise.all([loadLines(), loadCurrentUserInfo(), loadPanelSettings()]);
@@ -1192,6 +1355,94 @@
     messageModal.show();
   }
 
+  function showConfirmDialog(message, options) {
+    return new Promise((resolve) => {
+      if (!confirmModal) {
+        const ok = window.confirm(message);
+        resolve(ok);
+        return;
+      }
+
+      const title = (options && options.title) || "Confirmação";
+      if (confirmModalTitle) confirmModalTitle.textContent = title;
+      if (confirmModalBody) confirmModalBody.textContent = message;
+
+      const handlerOk = () => {
+        confirmModalOk.removeEventListener("click", handlerOk);
+        confirmModalEl.removeEventListener("hidden.bs.modal", handlerCancel);
+        resolve(true);
+      };
+      const handlerCancel = () => {
+        confirmModalOk.removeEventListener("click", handlerOk);
+        confirmModalEl.removeEventListener("hidden.bs.modal", handlerCancel);
+        resolve(false);
+      };
+
+      if (confirmModalOk) confirmModalOk.addEventListener("click", handlerOk);
+      if (confirmModalEl) confirmModalEl.addEventListener("hidden.bs.modal", handlerCancel, { once: true });
+
+      confirmModal.show();
+    });
+  }
+
+  if (btnMessageCopy && messageModalBody) {
+    btnMessageCopy.addEventListener("click", async () => {
+      const text = messageModalBody.textContent || "";
+      if (!text) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        const original = btnMessageCopy.textContent;
+        btnMessageCopy.textContent = "Copiado";
+        setTimeout(() => {
+          btnMessageCopy.textContent = original;
+        }, 2000);
+      } catch (err) {
+        console.error("Falha ao copiar texto", err);
+      }
+    });
+  }
+
+  function showLineCredentials(username, password, isTest) {
+    const panelLabel = (panelNameEl && panelNameEl.textContent) || "Xtream Python";
+    const base = baseUrl.replace(/\/$/, "");
+
+    const m3uTs = `${base}/get.php?username=${username}&password=${password}&type=m3u_plus&output=mpegts`;
+    const m3uHls = `${base}/get.php?username=${username}&password=${password}&type=m3u_plus&output=hls`;
+
+    const header = `Seja bem vindo a ${panelLabel}`;
+    let body =
+      `${header}\n\n` +
+      "====================================\n\n" +
+      "CELULARES, TABLETS, TV BOX e demais apps (iOS ou ANDROID)\n" +
+      "╭─ 📱\n" +
+      "├●   🟢 Preencha todos os dados corretamente\n" +
+      "├●\n" +
+      `├●   📡 DNS / URL: ${base}\n` +
+      `├●   👤 USUÁRIO: ${username}\n` +
+      `├●   🔐 SENHA:  ${password}\n` +
+      "╰──> Obs: Caso não entre, verifique se digitou tudo corretamente.\n\n" +
+      "LISTAS M3U (SMART TV, IPTV SMARTERS, IBO PLAYER, DUPLECAST, ETC.)\n\n" +
+      "🟢 Link (M3U MPEGTS):\n" +
+      `${m3uTs}\n\n` +
+      "🟡 Link (M3U HLS):\n" +
+      `${m3uHls}`;
+
+    if (isTest) {
+      body += "\n\nEste acesso é um TESTE temporário.\n";
+    }
+
+    showMessageModal("info", body);
+  }
+
   function formatIsoDateTime(iso) {
     if (!iso) return "-";
     try {
@@ -1242,6 +1493,7 @@
         .then(() => {
           if (lineTestModal) lineTestModal.hide();
           loadLinesTests();
+          showLineCredentials(username, password, true);
         })
         .catch((err) => showMessageModal("error", "Erro ao criar teste: " + err.message));
     });
