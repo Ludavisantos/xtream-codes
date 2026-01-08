@@ -212,10 +212,6 @@ def sync_channels_and_categories_from_firestore(db: Session) -> Dict:
     }
 
 
-def _resolve_contents_url_from_firestore(client: firestore.Client) -> Optional[str]:
-    doc = client.collection("app_config").document("contents").get()
-    data = doc.to_dict() or {}
-    nested = data.get("data") or {}
     if isinstance(nested, Dict):
         url = nested.get("url1")
         if url:
@@ -496,7 +492,7 @@ async def sync_vod_from_contents_json(
 
         # Se temos tmdb_id e resultados TMDB, aplicamos tanto poster/backdrop
         # quanto metadados ricos no VOD.
-        tmdb_meta_for_item: Dict | None = None
+        tmdb_meta_for_item: Optional[Dict] = None
         if tmdb_id:
             try:
                 tid_int = int(tmdb_id)
@@ -512,14 +508,14 @@ async def sync_vod_from_contents_json(
                     backdrop_url = backdrop_fetched
 
         # Campos de metadados TMDB opcionais
-        overview_val: str | None = None
-        vote_avg_val: str | None = None
-        rating_5_val: str | None = None
-        release_date_val: str | None = None
-        genres_val: str | None = None
-        cast_val: str | None = None
-        director_val: str | None = None
-        duration_secs_val: int | None = None
+        overview_val: Optional[str] = None
+        vote_avg_val: Optional[str] = None
+        rating_5_val: Optional[str] = None
+        release_date_val: Optional[str] = None
+        genres_val: Optional[str] = None
+        cast_val: Optional[str] = None
+        director_val: Optional[str] = None
+        duration_secs_val: Optional[int] = None
 
         if tmdb_meta_for_item:
             overview_val = tmdb_meta_for_item.get("overview") or None

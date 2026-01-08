@@ -17,6 +17,7 @@
   const btnSyncVodNoEpisodes = document.getElementById("btn-sync-vod-no-episodes");
   const btnSyncVodMovies = document.getElementById("btn-sync-vod-movies");
   const btnSyncVodSeries = document.getElementById("btn-sync-vod-series");
+  const btnSyncVodPosters = document.getElementById("btn-sync-vod-posters");
   const syncChannelsResult = document.getElementById("sync-channels-result");
   const syncVodResult = document.getElementById("sync-vod-result");
   const vodSyncModalEl = document.getElementById("vodSyncModal");
@@ -290,6 +291,26 @@
             syncVodResult.textContent = "Erro ao sincronizar séries VOD: " + err.message;
           }
           showMessageModal("error", "Erro ao sincronizar séries VOD: " + err.message);
+        });
+    });
+  }
+
+  if (btnSyncVodPosters) {
+    btnSyncVodPosters.addEventListener("click", () => {
+      if (syncVodResult) {
+        syncVodResult.textContent = "Atualizando apenas capas VOD via TMDB...";
+      }
+      apiRequest("POST", "/admin/sync/vod/posters-only")
+        .then((res) => {
+          if (syncVodResult) {
+            syncVodResult.textContent = JSON.stringify(res, null, 2);
+          }
+        })
+        .catch((err) => {
+          if (syncVodResult) {
+            syncVodResult.textContent = "Erro ao atualizar capas VOD: " + err.message;
+          }
+          showMessageModal("error", "Erro ao atualizar capas VOD: " + err.message);
         });
     });
   }

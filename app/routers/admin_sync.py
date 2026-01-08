@@ -152,3 +152,19 @@ async def sync_vod_start_fast(
     loop = asyncio.get_event_loop()
     loop.create_task(sync_service.vod_sync_job_fast_with_progress())
     return {"started": True}
+
+
+@router.post("/vod/posters-only")
+async def sync_vod_posters_only(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    """Atualiza apenas posters/backdrops de VOD existentes via TMDB.
+
+    Não lê Firestore, não cria novos VODs e não mexe em episódios. Apenas lê a
+    tabela VodContent, encontra registros com tmdb_id e sem capas e chama a TMDB
+    para preencher poster_url/backdrop_url e alguns metadados básicos.
+    """
+
+    result = await sync_service.sync_vod_posters_only(db, track_progress=False)
+    return {"vod_posters_only": result}
