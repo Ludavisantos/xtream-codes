@@ -1765,6 +1765,10 @@
         return;
       }
 
+      // Guarda os temas atuais antes de salvar, para detectar mudança
+      const previousLoginTheme = inputLoginTheme ? inputLoginTheme.value : null;
+      const previousPanelTheme = inputPanelTheme ? inputPanelTheme.value : null;
+
       const payload = {
         panel_name: inputPanelName ? inputPanelName.value : "",
         server_message: inputServerMessage ? inputServerMessage.value : "",
@@ -1811,6 +1815,15 @@
             "info",
             `Configurações do painel "${panelLabel}" foram salvas com sucesso.`,
           );
+
+          // Se o tema de login ou do painel mudou, recarrega a página para aplicar tudo desde o início
+          const loginThemeChanged = previousLoginTheme && data.login_theme && data.login_theme !== previousLoginTheme;
+          const panelThemeChanged = previousPanelTheme && data.panel_theme && data.panel_theme !== previousPanelTheme;
+          if (loginThemeChanged || panelThemeChanged) {
+            setTimeout(() => {
+              window.location.reload();
+            }, 400);
+          }
         })
         .catch((err) => {
           showMessageModal("error", "Erro ao salvar configurações do painel: " + err.message);
