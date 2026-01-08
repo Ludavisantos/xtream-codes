@@ -755,11 +755,19 @@
   // ===== Linhas IPTV =====
   const formLine = document.getElementById("form-line");
   const tableLinesUsersBody = document.querySelector("#table-lines-users tbody");
+  const linesFilterQuery = document.getElementById("lines-filter-query");
+  const linesFilterApply = document.getElementById("lines-filter-apply");
+  const linesFilterStatus = document.getElementById("lines-filter-status");
+  const linesFilterExpiry = document.getElementById("lines-filter-expiry");
   const linesSelectAll = document.getElementById("lines-select-all");
   const bulkDeleteLinesBtn = document.getElementById("bulk-delete-lines");
   const bulkRenewLinesBtn = document.getElementById("bulk-renew-lines");
   const bulkChangeOwnerLinesBtn = document.getElementById("bulk-change-owner-lines");
   const tableLinesTestsBody = document.querySelector("#table-lines-tests tbody");
+  const testsFilterQuery = document.getElementById("tests-filter-query");
+  const testsFilterApply = document.getElementById("tests-filter-apply");
+  const testsFilterStatus = document.getElementById("tests-filter-status");
+  const testsFilterExpiry = document.getElementById("tests-filter-expiry");
   const testsSelectAll = document.getElementById("tests-select-all");
   const bulkDeleteTestsBtn = document.getElementById("bulk-delete-tests");
   const bulkPromoteTestsBtn = document.getElementById("bulk-promote-tests");
@@ -884,7 +892,11 @@
 
         const roleLabel = (me.role || (me.is_admin ? "admin" : "vendor")).toLowerCase();
         if (roleLabel === "vendor") {
-          navbarUserInfo.textContent = `${me.username} — Créditos: ${credits} — Validade painel: ${panelExp}`;
+          navbarUserInfo.innerHTML = `
+            <span class="badge bg-success me-2">Expiração ${panelExp}</span>
+            <span>${me.username}</span>
+            <span class="ms-2 text-muted">Créditos: ${credits}</span>
+          `;
         } else {
           navbarUserInfo.textContent = me.username || currentUsername || "";
         }
@@ -902,17 +914,50 @@
     }
   }
 
-  async function loadLinesUsers() {
-    if (!tableLinesUsersBody || !accessToken) return;
+  let allUserLines = [];
+  let allTestLines = [];
+
+  function renderLinesUsers() {
+    if (!tableLinesUsersBody) return;
     tableLinesUsersBody.innerHTML = "";
-    try {
-      const lines = await apiRequest("GET", "/admin/lines/?is_test=false");
-      lines.forEach((ln) => {
-        const tr = document.createElement("tr");
-        const createdAt = formatIsoDateTime(ln.created_at);
-        const expiresAt = formatIsoDateTime(ln.expires_at);
-        const status = ln.is_active ? "A" : "I";
-        tr.innerHTML = `
+    const query = (linesFilterQuery && linesFilterQuery.value.trim().toLowerCase()) || "";
+    const statusFilter = (linesFilterStatus && linesFilterStatus.value) || "all";
+    const expiryFilter = (linesFilterExpiry && linesFilterExpiry.value) || "all";
+
+    const now = new Date();
+
+    allUserLines.forEach((ln) => {
+      const createdAt = formatIsoDateTime(ln.created_at);
+      const expiresAt = formatIsoDateTime(ln.expires_at);
+
+      let isExpired = false;
+      if (ln.expires_at) {
+        const expDate = new Date(ln.expires_at);
+        isExpired = expDate < now;
+      }
+      const status = isExpired ? "E" : "A";
+
+      // filtros
+      if (statusFilter !== "all" && status !== statusFilter) return;
+      if (expiryFilter !== "all") {
+        if (ln.expires_at) {
+          const expDate = new Date(ln.expires_at);
+          const isExpired = expDate < now;
+          if (expiryFilter === "active" && isExpired) return;
+          if (expiryFilter === "expired" && !isExpired) return;
+        } else if (expiryFilter !== "all") {
+          // sem expiração: considera como ativo
+          if (expiryFilter === "expired") return;
+        }
+      }
+
+      if (query) {
+        const hay = `${ln.name || ""} ${ln.username || ""} ${ln.customer_email || ""}`.toLowerCase();
+        if (!hay.includes(query)) return;
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
           <td><input type="checkbox" class="line-select" data-id="${ln.id}"></td>
           <td>${ln.name || "-"}</td>
           <td>${ln.username}</td>
@@ -920,29 +965,158 @@
           <td>${ln.customer_email || "-"}</td>
           <td>${createdAt}</td>
           <td>${expiresAt}</td>
-          <td>${status}</td>
+          <td><span class="status-badge ${status === "A" ? "status-badge-a" : "status-badge-e"}">${status}</span></td>
           <td>${ln.max_connections}</td>
           <td>${ln.owner_id}</td>
-          <td>
+          <td class="text-nowrap">
             <button
-              class="btn btn-sm btn-outline-primary btn-line-edit"
+              class="btn btn-sm btn-primary me-1 btn-line-edit"
               data-id="${ln.id}"
               data-name="${ln.name || ""}"
               data-email="${ln.customer_email || ""}"
               data-phone="${ln.customer_phone || ""}"
               data-active="${ln.is_active ? "1" : "0"}"
               data-maxconn="${ln.max_connections}"
-            >Editar</button>
+              title="Editar linha"
+            ><i class="bi bi-pencil"></i></button>
             <button
-              class="btn btn-sm btn-outline-secondary btn-line-cred"
+              class="btn btn-sm btn-info text-white me-1 btn-line-cred"
               data-username="${ln.username}"
               data-password="${ln.password}"
-            >Ver dados</button>
-            <button class="btn btn-sm btn-outline-danger btn-line-del" data-id="${ln.id}">X</button>
+              title="Ver dados de acesso"
+            ><i class="bi bi-key"></i></button>
+            <button class="btn btn-sm btn-success me-1 btn-line-m3u" data-username="${ln.username}" data-password="${ln.password}" title="Baixar playlist M3U8">
+              <i class="bi bi-download"></i>
+            </button>
+            <button class="btn btn-sm btn-danger btn-line-del" data-id="${ln.id}" title="Remover linha">
+              <i class="bi bi-trash"></i>
+            </button>
           </td>
         `;
         tableLinesUsersBody.appendChild(tr);
       });
+  }
+
+  function renderLinesTests() {
+    if (!tableLinesTestsBody) return;
+    tableLinesTestsBody.innerHTML = "";
+
+    const query = (testsFilterQuery && testsFilterQuery.value.trim().toLowerCase()) || "";
+    const statusFilter = (testsFilterStatus && testsFilterStatus.value) || "all";
+    const expiryFilter = (testsFilterExpiry && testsFilterExpiry.value) || "all";
+
+    const now = new Date();
+
+    allTestLines.forEach((ln) => {
+      const expiresAt = formatIsoDateTime(ln.expires_at);
+
+      let isExpired = false;
+      if (ln.expires_at) {
+        const expDate = new Date(ln.expires_at);
+        isExpired = expDate < now;
+      }
+      const status = isExpired ? "E" : "A";
+
+      if (statusFilter !== "all" && status !== statusFilter) return;
+      if (expiryFilter !== "all") {
+        if (ln.expires_at) {
+          const expDate = new Date(ln.expires_at);
+          const isExpired = expDate < now;
+          if (expiryFilter === "active" && isExpired) return;
+          if (expiryFilter === "expired" && !isExpired) return;
+        } else if (expiryFilter !== "all") {
+          if (expiryFilter === "expired") return;
+        }
+      }
+
+      if (query) {
+        const hay = `${ln.username || ""}`.toLowerCase();
+        if (!hay.includes(query)) return;
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+          <td><input type="checkbox" class="test-select" data-id="${ln.id}"></td>
+          <td>${ln.id}</td>
+          <td>${ln.username}</td>
+          <td>${ln.password}</td>
+          <td>${ln.owner_id}</td>
+          <td>${expiresAt}</td>
+          <td><span class="status-badge ${status === "A" ? "status-badge-a" : "status-badge-e"}">${status}</span></td>
+          <td>${ln.max_connections}</td>
+          <td class="text-nowrap">
+            <button class="btn btn-sm btn-info text-white me-1 btn-line-cred-test" data-username="${ln.username}" data-password="${ln.password}" title="Ver dados de acesso">
+              <i class="bi bi-key"></i>
+            </button>
+            <button class="btn btn-sm btn-success me-1 btn-test-m3u" data-username="${ln.username}" data-password="${ln.password}" title="Baixar playlist M3U8">
+              <i class="bi bi-download"></i>
+            </button>
+            <button class="btn btn-sm btn-success me-1 btn-line-promote" data-id="${ln.id}" title="Promover para linha">
+              <i class="bi bi-arrow-up-circle"></i>
+            </button>
+            <button class="btn btn-sm btn-danger btn-line-del" data-id="${ln.id}" title="Remover teste">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        `;
+      tableLinesTestsBody.appendChild(tr);
+    });
+  }
+
+  // ===== Filtros de Linhas IPTV =====
+  if (linesFilterApply) {
+    linesFilterApply.addEventListener("click", () => {
+      renderLinesUsers();
+    });
+  }
+  if (linesFilterQuery) {
+    linesFilterQuery.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") {
+        renderLinesUsers();
+      }
+    });
+  }
+  if (linesFilterStatus) {
+    linesFilterStatus.addEventListener("change", () => {
+      renderLinesUsers();
+    });
+  }
+  if (linesFilterExpiry) {
+    linesFilterExpiry.addEventListener("change", () => {
+      renderLinesUsers();
+    });
+  }
+
+  // ===== Filtros de Testes IPTV =====
+  if (testsFilterApply) {
+    testsFilterApply.addEventListener("click", () => {
+      renderLinesTests();
+    });
+  }
+  if (testsFilterQuery) {
+    testsFilterQuery.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") {
+        renderLinesTests();
+      }
+    });
+  }
+  if (testsFilterStatus) {
+    testsFilterStatus.addEventListener("change", () => {
+      renderLinesTests();
+    });
+  }
+  if (testsFilterExpiry) {
+    testsFilterExpiry.addEventListener("change", () => {
+      renderLinesTests();
+    });
+  }
+
+  async function loadLinesUsers() {
+    if (!tableLinesUsersBody || !accessToken) return;
+    try {
+      const lines = await apiRequest("GET", "/admin/lines/?is_test=false");
+      allUserLines = lines;
+      renderLinesUsers();
 
       const modalLineName = document.getElementById("modal-line-name");
       const modalLinePhone = document.getElementById("modal-line-phone");
@@ -994,6 +1168,23 @@
           const password = btn.getAttribute("data-password") || "";
           if (!username || !password) return;
           showLineCredentials(username, password, false);
+        });
+      });
+
+      // Botão para baixar playlist M3U8 de cada linha
+      tableLinesUsersBody.querySelectorAll(".btn-line-m3u").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const username = btn.getAttribute("data-username") || "";
+          const password = btn.getAttribute("data-password") || "";
+          if (!username || !password) return;
+          const base = baseUrl.replace(/\/$/, "");
+          const url = `${base}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u&output=m3u8`;
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${username}.m3u8`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
         });
       });
 
@@ -1113,28 +1304,11 @@
 
   async function loadLinesTests() {
     if (!tableLinesTestsBody || !accessToken) return;
-    tableLinesTestsBody.innerHTML = "";
     try {
       const lines = await apiRequest("GET", "/admin/lines/?is_test=true");
-      lines.forEach((ln) => {
-        const tr = document.createElement("tr");
-        const expiresAt = formatIsoDateTime(ln.expires_at);
-        tr.innerHTML = `
-          <td><input type="checkbox" class="test-select" data-id="${ln.id}"></td>
-          <td>${ln.id}</td>
-          <td>${ln.username}</td>
-          <td>${ln.password}</td>
-          <td>${ln.owner_id}</td>
-          <td>${expiresAt}</td>
-          <td>${ln.max_connections}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-secondary btn-line-cred-test" data-username="${ln.username}" data-password="${ln.password}">Ver dados</button>
-            <button class="btn btn-sm btn-outline-success btn-line-promote" data-id="${ln.id}">Promover</button>
-            <button class="btn btn-sm btn-outline-danger btn-line-del" data-id="${ln.id}">X</button>
-          </td>
-        `;
-        tableLinesTestsBody.appendChild(tr);
-      });
+      allTestLines = lines;
+
+      renderLinesTests();
 
       tableLinesTestsBody.querySelectorAll(".btn-line-promote").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -1173,6 +1347,22 @@
           const password = btn.getAttribute("data-password") || "";
           if (!username || !password) return;
           showLineCredentials(username, password, true);
+        });
+      });
+      // Botão para baixar playlist M3U8 dos testes
+      tableLinesTestsBody.querySelectorAll(".btn-test-m3u").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const username = btn.getAttribute("data-username") || "";
+          const password = btn.getAttribute("data-password") || "";
+          if (!username || !password) return;
+          const base = baseUrl.replace(/\/$/, "");
+          const url = `${base}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u&output=m3u8`;
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${username}.m3u8`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
         });
       });
       if (testsSelectAll) {
@@ -1248,6 +1438,11 @@
         const allowedVendor = ["lines", "tests"]; // sections liberadas para revendedor
         const initialVendor = allowedVendor.includes(lastSection) ? lastSection : "lines";
         showSection(initialVendor);
+
+        // Mostra blocos de filtros do layout de vendedor
+        document.querySelectorAll(".vendor-filters").forEach((el) => {
+          el.classList.remove("d-none");
+        });
       }
 
       await Promise.all([loadLines(), loadCurrentUserInfo(), loadPanelSettings()]);
