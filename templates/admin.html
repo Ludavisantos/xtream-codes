@@ -11,7 +11,7 @@
 <body>
 
 <!-- LOGIN -->
-<section id="section-login" class="login-section">
+<section id="section-login" class="login-section theme-{{ login_theme or 'default' }}">
     <div class="login-card card" id="login-card">
         <div class="card-body text-center">
             <h3 class="card-title mb-3">{{ panel_name }}</h3>
@@ -414,22 +414,50 @@
 
     <!-- Configurações do painel -->
     <section id="section-settings" class="admin-section d-none">
-        <div class="card mb-3" id="panel-settings-card">
+        <div class="card" id="panel-settings-card">
+            <div class="card-header">
+                <h2 class="mb-0">Configurações do painel</h2>
+            </div>
             <div class="card-body">
-                <h2 class="h4 mb-3">Configurações do painel</h2>
-                <p class="card-text small text-muted mb-3">Altere o nome exibido na barra superior e a mensagem do servidor mostrada no Dashboard. Apenas administradores podem salvar alterações.</p>
-                <form id="form-panel-settings" class="row g-2">
-                    <div class="col-md-4">
+                <form id="form-panel-settings">
+                    <div class="mb-3">
                         <label class="form-label">Nome do painel</label>
-                        <input type="text" class="form-control" id="input-panel-name" placeholder="Ex.: Xtream Painel Cinetv">
+                        <input type="text" class="form-control" id="input-panel-name" placeholder="Ex: CineMax IPTV" required>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Mensagem do servidor</label>
-                        <input type="text" class="form-control" id="input-server-message" placeholder="Ex.: Servidor em manutenção hoje às 23h">
+                    <div class="mb-3">
+                        <label class="form-label">Mensagem do servidor (exibida no app Xtream)</label>
+                        <textarea class="form-control" id="input-server-message" rows="3" placeholder="Mensagem opcional para clientes"></textarea>
                     </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100" id="btn-save-panel-settings">Salvar</button>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Fuso horário (UTC) da aplicação</label>
+                            <select class="form-select" id="input-timezone">
+                                <option value="UTC-5">UTC-5 (Lima, Bogotá)</option>
+                                <option value="UTC-4">UTC-4 (Caracas)</option>
+                                <option value="UTC-3" selected>UTC-3 (Brasília, São Paulo)</option>
+                                <option value="UTC-2">UTC-2</option>
+                                <option value="UTC-1">UTC-1</option>
+                                <option value="UTC">UTC</option>
+                                <option value="UTC+1">UTC+1 (Lisboa, Madri)</option>
+                                <option value="UTC+2">UTC+2</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tema visual da tela de login</label>
+                            <select class="form-select" id="input-login-theme">
+                                <option value="default">Padrão (claro)</option>
+                                <option value="mountain">Montanhas</option>
+                                <option value="beach">Praia</option>
+                                <option value="city">Cidade à noite</option>
+                                <option value="forest">Floresta</option>
+                                <option value="desert">Deserto</option>
+                                <option value="aurora">Aurora boreal</option>
+                                <option value="space">Espaço</option>
+                                <option value="ocean">Oceano</option>
+                            </select>
+                        </div>
                     </div>
+                    <button type="submit" class="btn btn-primary">Salvar configurações</button>
                 </form>
             </div>
         </div>

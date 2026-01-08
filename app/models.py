@@ -143,3 +143,16 @@ class PanelSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     panel_name = Column(String, default="Xtream Python")
     server_message = Column(String, nullable=True)
+
+
+class PanelUiSettings(Base):
+    """Configurações visuais do painel (fuso horário, tema da tela de login).
+
+    Mantemos apenas uma linha nesta tabela.
+    """
+
+    __tablename__ = "panel_ui_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timezone = Column(String, default="UTC")  # ex: "UTC-3", "UTC", "UTC+1"
+    login_theme = Column(String, default="default")  # ex: "default", "mountain", "beach"

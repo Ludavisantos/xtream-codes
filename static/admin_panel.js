@@ -41,6 +41,23 @@
   const formPanelSettings = document.getElementById("form-panel-settings");
   const inputPanelName = document.getElementById("input-panel-name");
   const inputServerMessage = document.getElementById("input-server-message");
+  const inputTimezone = document.getElementById("input-timezone");
+  const inputLoginTheme = document.getElementById("input-login-theme");
+
+  function applyLoginTheme(theme) {
+    if (!sectionLogin) return;
+    const themes = ["default", "mountain", "beach", "city", "forest", "desert", "aurora", "space", "ocean"];
+
+    // Normaliza valores antigos ou inesperados do banco
+    let tNormalized = (theme || "").toString().toLowerCase();
+    if (tNormalized === "floresta") tNormalized = "forest";
+
+    themes.forEach((t) => {
+      sectionLogin.classList.remove("theme-" + t);
+    });
+    const safe = themes.includes(tNormalized) ? tNormalized : "default";
+    sectionLogin.classList.add("theme-" + safe);
+  }
 
   function parseJwt(token) {
     const parts = (token || "").split(".");
@@ -432,6 +449,21 @@
       if (inputServerMessage) {
         inputServerMessage.value = msg;
       }
+
+      if (inputTimezone) {
+        inputTimezone.value = data.timezone || inputTimezone.value || "UTC-3";
+      }
+
+      const themeOptions = ["default", "mountain", "beach", "city", "forest", "desert", "aurora", "space", "ocean"];
+      let themeFromServer = data.login_theme || (inputLoginTheme && inputLoginTheme.value) || "default";
+      if (themeFromServer === "floresta") themeFromServer = "forest";
+      if (!themeOptions.includes(themeFromServer)) themeFromServer = "default";
+
+      if (inputLoginTheme) {
+        inputLoginTheme.value = themeFromServer;
+      }
+
+      applyLoginTheme(themeFromServer);
 
       // Apenas admins podem ver o card de configurações
       if (panelSettingsCard) {
@@ -1712,6 +1744,8 @@
       const payload = {
         panel_name: inputPanelName ? inputPanelName.value : "",
         server_message: inputServerMessage ? inputServerMessage.value : "",
+        timezone: inputTimezone ? inputTimezone.value : undefined,
+        login_theme: inputLoginTheme ? inputLoginTheme.value : undefined,
       };
 
       apiRequest("PUT", "/admin/settings/", payload)
@@ -1731,6 +1765,15 @@
               serverMessageText.textContent = "";
               serverMessageBox.classList.add("d-none");
             }
+          }
+
+          // Atualiza selects e aplica tema/logo imediatamente após salvar
+          if (inputTimezone && data.timezone) {
+            inputTimezone.value = data.timezone;
+          }
+          if (inputLoginTheme && data.login_theme) {
+            inputLoginTheme.value = data.login_theme;
+            applyLoginTheme(data.login_theme);
           }
 
           const panelLabel = data.panel_name || "Painel";

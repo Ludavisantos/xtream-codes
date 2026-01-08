@@ -57,15 +57,22 @@ async def root():
 async def admin_panel(request: Request):
     base_url = str(request.base_url)
 
-    # Obtém o nome do painel para exibir já na tela de login (antes da autenticação)
+    # Obtém o nome do painel e o tema de login para exibir já na tela de login (antes da autenticação)
     db: Session = SessionLocal()
     try:
         settings = db.query(models.PanelSettings).first()
         panel_name = settings.panel_name if settings and settings.panel_name else "Xtream Python"
+        ui = db.query(models.PanelUiSettings).first()
+        login_theme = ui.login_theme if ui and ui.login_theme else "default"
     finally:
         db.close()
 
     return templates.TemplateResponse(
         "admin.html",
-        {"request": request, "base_url": base_url, "panel_name": panel_name},
+        {
+            "request": request,
+            "base_url": base_url,
+            "panel_name": panel_name,
+            "login_theme": login_theme,
+        },
     )
