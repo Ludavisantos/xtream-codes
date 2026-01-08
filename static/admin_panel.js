@@ -43,6 +43,7 @@
   const inputServerMessage = document.getElementById("input-server-message");
   const inputTimezone = document.getElementById("input-timezone");
   const inputLoginTheme = document.getElementById("input-login-theme");
+  const inputPanelTheme = document.getElementById("input-panel-theme");
 
   function applyLoginTheme(theme) {
     if (!sectionLogin) return;
@@ -57,6 +58,18 @@
     });
     const safe = themes.includes(tNormalized) ? tNormalized : "default";
     sectionLogin.classList.add("theme-" + safe);
+  }
+
+  function applyPanelTheme(theme) {
+    if (!adminWrapper) return;
+    const themes = ["default", "dark", "darkblue", "slate", "emerald"];
+
+    const normalized = (theme || "").toString().toLowerCase();
+    themes.forEach((t) => {
+      adminWrapper.classList.remove("panel-theme-" + t);
+    });
+    const safe = themes.includes(normalized) ? normalized : "default";
+    adminWrapper.classList.add("panel-theme-" + safe);
   }
 
   function parseJwt(token) {
@@ -464,6 +477,17 @@
       }
 
       applyLoginTheme(themeFromServer);
+
+      // Tema do painel (pós-login)
+      const panelThemeOptions = ["default", "dark", "darkblue", "slate", "emerald"];
+      let panelThemeFromServer = data.panel_theme || (inputPanelTheme && inputPanelTheme.value) || "default";
+      if (!panelThemeOptions.includes(panelThemeFromServer)) panelThemeFromServer = "default";
+
+      if (inputPanelTheme) {
+        inputPanelTheme.value = panelThemeFromServer;
+      }
+
+      applyPanelTheme(panelThemeFromServer);
 
       // Apenas admins podem ver o card de configurações
       if (panelSettingsCard) {
@@ -1746,6 +1770,7 @@
         server_message: inputServerMessage ? inputServerMessage.value : "",
         timezone: inputTimezone ? inputTimezone.value : undefined,
         login_theme: inputLoginTheme ? inputLoginTheme.value : undefined,
+        panel_theme: inputPanelTheme ? inputPanelTheme.value : undefined,
       };
 
       apiRequest("PUT", "/admin/settings/", payload)
@@ -1774,6 +1799,11 @@
           if (inputLoginTheme && data.login_theme) {
             inputLoginTheme.value = data.login_theme;
             applyLoginTheme(data.login_theme);
+          }
+
+          if (inputPanelTheme && data.panel_theme) {
+            inputPanelTheme.value = data.panel_theme;
+            applyPanelTheme(data.panel_theme);
           }
 
           const panelLabel = data.panel_name || "Painel";

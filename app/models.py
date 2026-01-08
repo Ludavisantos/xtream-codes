@@ -146,7 +146,7 @@ class PanelSettings(Base):
 
 
 class PanelUiSettings(Base):
-    """Configurações visuais do painel (fuso horário, tema da tela de login).
+    """Configurações visuais do painel (fuso horário, temas de login e do painel).
 
     Mantemos apenas uma linha nesta tabela.
     """
@@ -156,3 +156,4 @@ class PanelUiSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     timezone = Column(String, default="UTC")  # ex: "UTC-3", "UTC", "UTC+1"
     login_theme = Column(String, default="default")  # ex: "default", "mountain", "beach"
+    panel_theme = Column(String, default="default")  # ex: "default", "dark", "darkblue"

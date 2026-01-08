@@ -21,7 +21,7 @@ def _get_or_create_settings(db: Session) -> models.PanelSettings:
 def _get_or_create_ui_settings(db: Session) -> models.PanelUiSettings:
     ui = db.query(models.PanelUiSettings).first()
     if ui is None:
-        ui = models.PanelUiSettings(timezone="UTC", login_theme="default")
+        ui = models.PanelUiSettings(timezone="UTC", login_theme="default", panel_theme="default")
         db.add(ui)
         db.commit()
         db.refresh(ui)
@@ -40,6 +40,7 @@ def get_settings(
         "server_message": settings.server_message or "",
         "timezone": ui.timezone or "UTC",
         "login_theme": ui.login_theme or "default",
+        "panel_theme": ui.panel_theme or "default",
     }
 
 
@@ -53,6 +54,7 @@ def update_settings(
     server_message = (payload.get("server_message") or "").strip()
     timezone = (payload.get("timezone") or "UTC").strip()
     login_theme = (payload.get("login_theme") or "default").strip()
+    panel_theme = (payload.get("panel_theme") or "default").strip()
 
     if not panel_name:
         raise HTTPException(status_code=400, detail="panel_name is required")
@@ -64,6 +66,7 @@ def update_settings(
     ui = _get_or_create_ui_settings(db)
     ui.timezone = timezone or "UTC"
     ui.login_theme = login_theme or "default"
+    ui.panel_theme = panel_theme or "default"
 
     db.add(settings)
     db.add(ui)

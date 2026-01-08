@@ -189,6 +189,11 @@ pre { max-height: 200px; overflow: auto; }
   border-color: #0369a1;
 }
 
+/* Wrapper do painel autenticado */
+.admin-wrapper {
+  min-height: 100vh;
+}
+
 .admin-wrapper.hidden {
   display: none !important;
 }
@@ -282,6 +287,140 @@ pre { max-height: 200px; overflow: auto; }
 .navbar.bg-dark {
   background: linear-gradient(120deg, #020617, #111827) !important;
   border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+/* === Temas do painel (aplicados em #admin-wrapper) === */
+
+/* Tema padrão (claro) já usa as regras base de card/btn/navbar */
+.admin-wrapper.panel-theme-default {
+  background-color: #f3f4f6;
+}
+
+/* Tema escuro geral */
+.admin-wrapper.panel-theme-dark {
+  background-color: #020617;
+  color: #e5e7eb;
+}
+
+.admin-wrapper.panel-theme-dark .card {
+  background: #020617;
+  border-color: #111827;
+  color: #e5e7eb;
+}
+
+.admin-wrapper.panel-theme-dark .card-header {
+  background: linear-gradient(120deg, #111827, #020617);
+  color: #e5e7eb;
+  border-bottom-color: #020617;
+}
+
+.admin-wrapper.panel-theme-dark .btn-primary {
+  background-color: #4b5563;
+  border-color: #374151;
+}
+
+.admin-wrapper.panel-theme-dark .btn-primary:hover,
+.admin-wrapper.panel-theme-dark .btn-primary:focus {
+  background-color: #374151;
+  border-color: #1f2937;
+}
+
+.admin-wrapper.panel-theme-dark .navbar.bg-dark {
+  background: linear-gradient(120deg, #020617, #111827) !important;
+}
+
+/* Tema azul escuro */
+.admin-wrapper.panel-theme-darkblue {
+  background-color: #020617;
+  color: #e5e7eb;
+}
+
+.admin-wrapper.panel-theme-darkblue .card {
+  background: radial-gradient(circle at top, #1d4ed8 0, #020617 55%);
+  border-color: #1d4ed8;
+  color: #e5e7eb;
+}
+
+.admin-wrapper.panel-theme-darkblue .card-header {
+  background: linear-gradient(120deg, #1d4ed8, #4f46e5);
+  border-bottom-color: transparent;
+}
+
+.admin-wrapper.panel-theme-darkblue .btn-primary {
+  background-color: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.admin-wrapper.panel-theme-darkblue .btn-primary:hover,
+.admin-wrapper.panel-theme-darkblue .btn-primary:focus {
+  background-color: #1d4ed8;
+  border-color: #1e40af;
+}
+
+.admin-wrapper.panel-theme-darkblue .navbar.bg-dark {
+  background: linear-gradient(120deg, #0f172a, #1d4ed8) !important;
+}
+
+/* Tema cinza escuro (slate) */
+.admin-wrapper.panel-theme-slate {
+  background-color: #020617;
+  color: #e5e7eb;
+}
+
+.admin-wrapper.panel-theme-slate .card {
+  background: #020617;
+  border-color: #1e293b;
+  color: #e5e7eb;
+}
+
+.admin-wrapper.panel-theme-slate .card-header {
+  background: linear-gradient(120deg, #1e293b, #020617);
+}
+
+.admin-wrapper.panel-theme-slate .btn-primary {
+  background-color: #334155;
+  border-color: #1e293b;
+}
+
+.admin-wrapper.panel-theme-slate .btn-primary:hover,
+.admin-wrapper.panel-theme-slate .btn-primary:focus {
+  background-color: #1f2937;
+  border-color: #111827;
+}
+
+.admin-wrapper.panel-theme-slate .navbar.bg-dark {
+  background: linear-gradient(120deg, #020617, #1e293b) !important;
+}
+
+/* Tema verde (emerald) */
+.admin-wrapper.panel-theme-emerald {
+  background-color: #022c22;
+  color: #ecfdf5;
+}
+
+.admin-wrapper.panel-theme-emerald .card {
+  background: radial-gradient(circle at top, #22c55e 0, #022c22 60%);
+  border-color: #22c55e;
+  color: #ecfdf5;
+}
+
+.admin-wrapper.panel-theme-emerald .card-header {
+  background: linear-gradient(120deg, #16a34a, #22c55e);
+}
+
+.admin-wrapper.panel-theme-emerald .btn-primary {
+  background-color: #16a34a;
+  border-color: #15803d;
+}
+
+.admin-wrapper.panel-theme-emerald .btn-primary:hover,
+.admin-wrapper.panel-theme-emerald .btn-primary:focus {
+  background-color: #15803d;
+  border-color: #166534;
+}
+
+.admin-wrapper.panel-theme-emerald .navbar.bg-dark {
+  background: linear-gradient(120deg, #052e16, #16a34a) !important;
 }
 
 /* Ajustes gerais para telas pequenas */
