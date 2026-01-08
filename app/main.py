@@ -2,7 +2,10 @@ from fastapi import FastAPI, Request
 import logging
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from .database import Base, engine
+from sqlalchemy.orm import Session
+
+from .database import Base, engine, SessionLocal
+from . import models
 from .routers import (
     admin_users,
     xtream,
@@ -53,4 +56,16 @@ async def root():
 @app.get("/admin")
 async def admin_panel(request: Request):
     base_url = str(request.base_url)
-    return templates.TemplateResponse("admin.html", {"request": request, "base_url": base_url})
+
+    # Obtém o nome do painel para exibir já na tela de login (antes da autenticação)
+    db: Session = SessionLocal()
+    try:
+        settings = db.query(models.PanelSettings).first()
+        panel_name = settings.panel_name if settings and settings.panel_name else "Xtream Python"
+    finally:
+        db.close()
+
+    return templates.TemplateResponse(
+        "admin.html",
+        {"request": request, "base_url": base_url, "panel_name": panel_name},
+    )
