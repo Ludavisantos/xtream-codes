@@ -895,7 +895,7 @@
           navbarUserInfo.innerHTML = `
             <span class="badge bg-success me-2">Expiração ${panelExp}</span>
             <span>${me.username}</span>
-            <span class="ms-2 text-muted">Créditos: ${credits}</span>
+            <span class="ms-2 fw-semibold">Créditos: ${credits}</span>
           `;
         } else {
           navbarUserInfo.textContent = me.username || currentUsername || "";
@@ -1059,8 +1059,8 @@
             </button>
           </td>
         `;
-      tableLinesTestsBody.appendChild(tr);
-    });
+        tableLinesTestsBody.appendChild(tr);
+      });
   }
 
   // ===== Filtros de Linhas IPTV =====
@@ -1602,6 +1602,13 @@
         }, 2000);
       } catch (err) {
         console.error("Falha ao copiar texto", err);
+        // Fallback extra para navegadores móveis que bloqueiam APIs de clipboard:
+        // exibe um prompt nativo com o texto para o usuário copiar manualmente.
+        try {
+          window.prompt("Copie os dados abaixo:", text);
+        } catch (_) {
+          // se até o prompt falhar, não há muito o que fazer além de exibir o texto no modal
+        }
       }
     });
   }

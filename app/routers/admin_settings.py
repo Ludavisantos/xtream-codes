@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from .. import models
-from ..deps import get_current_admin
+from ..deps import get_db, get_current_panel_user, get_current_admin
 
 router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 
@@ -21,7 +21,7 @@ def _get_or_create_settings(db: Session) -> models.PanelSettings:
 @router.get("/", response_model=dict)
 def get_settings(
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_admin),
+    _: models.User = Depends(get_current_panel_user),
 ):
     settings = _get_or_create_settings(db)
     return {
