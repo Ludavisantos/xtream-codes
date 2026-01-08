@@ -593,6 +593,169 @@ async def sync_vod_from_contents_json(
     }
 
 
+async def sync_vod_posters_only(
+    db: Session,
+    track_progress: bool = False,
+) -> Dict:
+    """Atualiza apenas posters/backdrops de VOD existentes usando TMDB.
+
+    Não lê Firestore nem contents.json. Apenas consulta a tabela VodContent,
+    encontra registros com tmdb_id preenchido e poster/backdrop ausentes e
+    chama a TMDB para preencher as capas e alguns metadados básicos.
+    """
+
+    vods = (
+        db.query(models.VodContent)
+        .filter(
+            models.VodContent.tmdb_id.isnot(None),
+            (models.VodContent.poster_url.is_(None))
+            | (models.VodContent.backdrop_url.is_(None)),
+        )
+        .all()
+    )
+
+    total_items = len(vods)
+    if total_items == 0:
+        return {
+            "vod_total_items": 0,
+            "tmdb_poster_attempts": 0,
+            "tmdb_poster_success": 0,
+            "updated": 0,
+        }
+
+    logger.info("[sync_vod_posters_only] found %d VODs without full posters", total_items)
+
+    if track_progress:
+        vod_sync_progress.update(
+            {
+                "running": True,
+                "current": 0,
+                "total": total_items,
+                "tmdb_attempts": 0,
+                "tmdb_success": 0,
+                "step": "fetch_tmdb_posters_only",
+                "error": None,
+            }
+        )
+
+    tmdb_jobs: Dict[tuple[int, str], models.VodContent] = {}
+    for vod in vods:
+        if not vod.tmdb_id:
+            continue
+        tmdb_type = "movie" if vod.type in {"movie", "filme"} else "tv"
+        tmdb_jobs[(int(vod.tmdb_id), tmdb_type)] = vod
+
+    if not tmdb_jobs:
+        return {
+            "vod_total_items": total_items,
+            "tmdb_poster_attempts": 0,
+            "tmdb_poster_success": 0,
+            "updated": 0,
+        }
+
+    logger.info("[sync_vod_posters_only] TMDB jobs scheduled: %d", len(tmdb_jobs))
+
+    sem = asyncio.Semaphore(50)
+    tmdb_attempts = 0
+    tmdb_success = 0
+    updated = 0
+
+    async def fetch_tmdb_for_vod(tid: int, tmdb_type: str, vod_obj: models.VodContent):
+        nonlocal tmdb_attempts, tmdb_success, updated
+        api_key = "5173c8066086fe7c406c959303bd6cbf"
+        url_tmdb = f"https://api.themoviedb.org/3/{tmdb_type}/{tid}"
+        async with sem:
+            try:
+                tmdb_attempts += 1
+                async with httpx.AsyncClient(timeout=20) as tmdb_http:
+                    r = await tmdb_http.get(
+                        url_tmdb,
+                        params={
+                            "api_key": api_key,
+                            "language": "pt-BR",
+                        },
+                    )
+                    r.raise_for_status()
+                    tdata = r.json() or {}
+
+                poster_path = tdata.get("poster_path")
+                backdrop_path = tdata.get("backdrop_path")
+                poster = (
+                    f"https://image.tmdb.org/t/p/w300{poster_path}"
+                    if poster_path
+                    else None
+                )
+                backdrop = (
+                    f"https://image.tmdb.org/t/p/w780{backdrop_path}"
+                    if backdrop_path
+                    else None
+                )
+
+                if poster and not vod_obj.poster_url:
+                    vod_obj.poster_url = poster
+                if backdrop and not vod_obj.backdrop_url:
+                    vod_obj.backdrop_url = backdrop
+
+                # Metadados básicos opcionais
+                overview = tdata.get("overview") or None
+                vote = tdata.get("vote_average") or 0
+                try:
+                    rating_str = f"{float(vote):.1f}"
+                    rating_5 = f"{round(float(vote) / 2, 1):.1f}"
+                except Exception:
+                    rating_str = None
+                    rating_5 = None
+
+                release_date = (
+                    tdata.get("release_date")
+                    or tdata.get("first_air_date")
+                    or None
+                )
+
+                genres_list = tdata.get("genres") or []
+                genres_str = None
+                if isinstance(genres_list, List):
+                    genres_str = ", ".join(
+                        [g.get("name", "") for g in genres_list if g.get("name")]
+                    )
+
+                if overview is not None:
+                    vod_obj.overview = overview
+                if rating_str is not None:
+                    vod_obj.vote_average = rating_str
+                if rating_5 is not None:
+                    vod_obj.rating_5based = rating_5
+                if release_date is not None:
+                    vod_obj.release_date = release_date
+                if genres_str is not None:
+                    vod_obj.genres = genres_str
+
+                tmdb_success += 1
+                updated += 1
+                if track_progress:
+                    vod_sync_progress["tmdb_attempts"] = tmdb_attempts
+                    vod_sync_progress["tmdb_success"] = tmdb_success
+            except Exception:
+                # Em caso de falha para este título, apenas seguir para o próximo.
+                return
+
+    await asyncio.gather(
+        *(fetch_tmdb_for_vod(tid, ttype, vod) for (tid, ttype), vod in tmdb_jobs.items())
+    )
+
+    db.commit()
+
+    if track_progress:
+        vod_sync_progress["running"] = False
+
+    return {
+        "vod_total_items": total_items,
+        "tmdb_poster_attempts": tmdb_attempts,
+        "tmdb_poster_success": tmdb_success,
+        "updated": updated,
+    }
+
+
 async def sync_series_episodes_from_availability(
     db: Session,
     track_progress: bool = False,
