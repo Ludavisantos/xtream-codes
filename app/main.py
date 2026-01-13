@@ -16,6 +16,7 @@ from .routers import (
     admin_vod,
     admin_lines,
     admin_settings,
+    integration,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -45,6 +46,7 @@ app.include_router(admin_sync.router)
 app.include_router(admin_vod.router)
 app.include_router(admin_lines.router)
 app.include_router(admin_settings.router)
+app.include_router(integration.router)
 app.include_router(xtream.router)
 
 

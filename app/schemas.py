@@ -30,6 +30,21 @@ class UserOut(UserBase):
         from_attributes = True
 
 
+class IntegrationCreateLine(BaseModel):
+    """Payload para criação de linha IPTV via integrações externas.
+
+    Este schema é usado pelo endpoint /integration/lines, chamado pelas Cloud Functions
+    após aprovação de pagamento (ex: Mercado Pago).
+    """
+
+    external_user_id: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    months: int = 1
+    max_connections: int = 1
+
+
 class UserInfoXtream(BaseModel):
     username: str
     status: str
