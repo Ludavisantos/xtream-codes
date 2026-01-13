@@ -622,9 +622,10 @@ async def get_php(
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
-    # Só suportamos M3U por enquanto
-    if type.lower() != "m3u":
-        raise HTTPException(status_code=400, detail="Only type=m3u is supported currently")
+    # Só suportamos M3U por enquanto; aceitamos tanto m3u quanto m3u_plus
+    type_lower = (type or "").lower()
+    if type_lower not in {"m3u", "m3u_plus"}:
+        raise HTTPException(status_code=400, detail="Only type=m3u or type=m3u_plus are supported currently")
 
     base_url = str(request.base_url).rstrip("/")
 

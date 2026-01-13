@@ -1673,6 +1673,7 @@
     const panelLabel = (panelNameEl && panelNameEl.textContent) || "Xtream Python";
     const base = baseUrl.replace(/\/$/, "");
 
+    // Backend aceita tanto type=m3u quanto type=m3u_plus; usamos m3u_plus por compatibilidade visual
     const m3uTs = `${base}/get.php?username=${username}&password=${password}&type=m3u_plus&output=mpegts`;
     const m3uHls = `${base}/get.php?username=${username}&password=${password}&type=m3u_plus&output=hls`;
 
