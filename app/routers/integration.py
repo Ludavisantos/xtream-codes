@@ -12,7 +12,7 @@ router = APIRouter(prefix="/integration", tags=["integration"])
 
 
 def _check_integration_api_key(x_api_key: Optional[str]) -> None:
-    default_key = "DEFAULT_IPTV_KEY_123"
+    default_key = "ffdLoKJAoamU432"
     expected = os.getenv("IPTV_INTEGRATION_API_KEY") or os.getenv("IPTV_API_KEY") or default_key
     if not expected or x_api_key != expected:
         raise HTTPException(
