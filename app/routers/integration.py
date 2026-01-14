@@ -164,3 +164,45 @@ def create_line_from_integration(
     db.refresh(iptv_line)
 
     return iptv_line
+
+
+@router.post("/lines/sync-expiry", response_model=schemas.IptvLineOut)
+def sync_line_expiry_from_integration(
+    payload: schemas.IntegrationUpdateLineExpiry,
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(default=None),
+):
+    """Atualiza apenas a validade (expires_at) de uma linha IPTV existente via integração.
+
+    A linha é localizada por `username` e mantemos username/senha inalterados. Somente
+    `expires_at` (e opcionalmente `is_active`) são ajustados.
+    """
+
+    _check_integration_api_key(authorization)
+
+    line = db.query(models.IptvLine).filter(models.IptvLine.username == payload.username).first()
+    if line is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="line_not_found")
+
+    # Reaproveita a mesma lógica de cálculo de validade: se expires_at vier, usa direto;
+    # caso contrário, utiliza months como fallback.
+    if payload.expires_at is not None:
+        expires_at = payload.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        now_utc = datetime.now(timezone.utc)
+        if expires_at <= now_utc:
+            expires_at = now_utc + timedelta(days=1)
+    else:
+        months = payload.months if payload.months and payload.months > 0 else 1
+        expires_at = datetime.utcnow() + timedelta(days=30 * months)
+
+    line.expires_at = expires_at
+    # Opcionalmente, garantir que a linha fique ativa ao estender a validade
+    line.is_active = True
+
+    db.add(line)
+    db.commit()
+    db.refresh(line)
+
+    return line

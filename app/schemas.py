@@ -48,6 +48,17 @@ class IntegrationCreateLine(BaseModel):
     max_connections: int = 1
 
 
+class IntegrationUpdateLineExpiry(BaseModel):
+    """Payload para atualizar apenas a validade de uma linha IPTV existente via integração.
+
+    Não altera username/senha, apenas a data de expiração.
+    """
+
+    username: str
+    months: Optional[int] = None
+    expires_at: Optional[datetime] = None
+
+
 class UserInfoXtream(BaseModel):
     username: str
     status: str
