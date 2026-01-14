@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 from typing import Optional
 
@@ -108,10 +108,14 @@ def create_line_from_integration(
     # - Se expires_at vier preenchido na integração, usamos diretamente essa data.
     # - Caso contrário, usamos months (mínimo 1 mês) a partir de agora.
     if payload.expires_at is not None:
+        # Normaliza para datetime ciente de fuso em UTC
         expires_at = payload.expires_at
-        # Garanta ao menos alguns minutos à frente para evitar datas já vencidas
-        if expires_at <= datetime.utcnow():
-            expires_at = datetime.utcnow() + timedelta(days=1)
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        now_utc = datetime.now(timezone.utc)
+        # Garanta ao menos algum tempo à frente para evitar datas já vencidas
+        if expires_at <= now_utc:
+            expires_at = now_utc + timedelta(days=1)
         months = None
     else:
         months = payload.months if payload.months and payload.months > 0 else 1
