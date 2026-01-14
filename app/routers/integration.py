@@ -33,6 +33,18 @@ def _check_integration_api_key(x_api_key: Optional[str]) -> None:
         _mask(expected),
     )
 
+    # Também envia para stdout para aparecer claramente nos logs do serviço
+    print(
+        "[integration] API key check - header=",
+        _mask(x_api_key),
+        "env_integration=",
+        _mask(env_integration),
+        "env_iptv=",
+        _mask(env_iptv),
+        "expected=",
+        _mask(expected),
+    )
+
     if not expected or x_api_key != expected:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
