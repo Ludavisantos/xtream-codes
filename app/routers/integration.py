@@ -104,9 +104,18 @@ def create_line_from_integration(
 
     owner = _get_default_owner(db)
 
-    # Define validade em meses (mínimo 1)
-    months = payload.months if payload.months and payload.months > 0 else 1
-    expires_at = datetime.utcnow() + timedelta(days=30 * months)
+    # Define validade:
+    # - Se expires_at vier preenchido na integração, usamos diretamente essa data.
+    # - Caso contrário, usamos months (mínimo 1 mês) a partir de agora.
+    if payload.expires_at is not None:
+        expires_at = payload.expires_at
+        # Garanta ao menos alguns minutos à frente para evitar datas já vencidas
+        if expires_at <= datetime.utcnow():
+            expires_at = datetime.utcnow() + timedelta(days=1)
+        months = None
+    else:
+        months = payload.months if payload.months and payload.months > 0 else 1
+        expires_at = datetime.utcnow() + timedelta(days=30 * months)
 
     # Garante max_connections entre 1 e 3
     max_conns = payload.max_connections or 1
@@ -115,15 +124,22 @@ def create_line_from_integration(
     if max_conns > 3:
         max_conns = 3
 
-    # Gera username/senha aleatórios, garantindo unicidade do username
-    base_username = f"u{payload.external_user_id[:6]}" if payload.external_user_id else "u"
-    suffix = 1
-    username = f"{base_username}{suffix}"
-    while db.query(models.IptvLine).filter(models.IptvLine.username == username).first() is not None:
-        suffix += 1
-        username = f"{base_username}{suffix}"
+    # Gera username/senha com exatamente 6 caracteres alfanuméricos (a-z, A-Z, 0-9)
+    import random
+    import string
 
-    password = os.urandom(6).hex()
+    charset = string.ascii_letters + string.digits
+
+    def _random_token(length: int = 6) -> str:
+        return "".join(random.choice(charset) for _ in range(length))
+
+    # username precisa ser único
+    username = _random_token(6)
+    while db.query(models.IptvLine).filter(models.IptvLine.username == username).first() is not None:
+        username = _random_token(6)
+
+    # password pode ser apenas randômica, sem checar unicidade
+    password = _random_token(6)
 
     iptv_line = models.IptvLine(
         name=payload.name,
