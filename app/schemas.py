@@ -41,7 +41,10 @@ class IntegrationCreateLine(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
-    months: int = 1
+    # Meses de validade (fallback quando expires_at não é fornecido)
+    months: Optional[int] = 1
+    # Data de expiração exata (usada quando fornecida pela integração)
+    expires_at: Optional[datetime] = None
     max_connections: int = 1
 
 
