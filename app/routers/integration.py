@@ -7,13 +7,32 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+import logging
 
 router = APIRouter(prefix="/integration", tags=["integration"])
 
 
 def _check_integration_api_key(x_api_key: Optional[str]) -> None:
     default_key = "ffdLoKJAoamU432"
-    expected = os.getenv("IPTV_INTEGRATION_API_KEY") or os.getenv("IPTV_API_KEY") or default_key
+    env_integration = os.getenv("IPTV_INTEGRATION_API_KEY")
+    env_iptv = os.getenv("IPTV_API_KEY")
+    expected = env_integration or env_iptv or default_key
+
+    def _mask(v: Optional[str]) -> str:
+        if not v:
+            return "<none>"
+        if len(v) <= 4:
+            return "*" * len(v)
+        return f"{v[:2]}***{v[-2:]}(len={len(v)})"
+
+    logging.getLogger("integration").info(
+        "[integration] API key check - header=%s, env_integration=%s, env_iptv=%s, expected=%s",
+        _mask(x_api_key),
+        _mask(env_integration),
+        _mask(env_iptv),
+        _mask(expected),
+    )
+
     if not expected or x_api_key != expected:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
