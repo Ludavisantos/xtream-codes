@@ -12,7 +12,7 @@ import logging
 router = APIRouter(prefix="/integration", tags=["integration"])
 
 
-def _check_integration_api_key(x_api_key: Optional[str]) -> None:
+def _check_integration_api_key(auth_header: Optional[str]) -> None:
     default_key = "ffdLoKJAoamU432"
     env_integration = os.getenv("IPTV_INTEGRATION_API_KEY")
     env_iptv = os.getenv("IPTV_API_KEY")
@@ -25,9 +25,14 @@ def _check_integration_api_key(x_api_key: Optional[str]) -> None:
             return "*" * len(v)
         return f"{v[:2]}***{v[-2:]}(len={len(v)})"
 
+    # Extrai chave do header Authorization: Bearer <KEY>
+    key = None
+    if auth_header and auth_header.startswith("Bearer "):
+        key = auth_header[len("Bearer ") :].strip()
+
     logging.getLogger("integration").info(
         "[integration] API key check - header=%s, env_integration=%s, env_iptv=%s, expected=%s",
-        _mask(x_api_key),
+        _mask(key),
         _mask(env_integration),
         _mask(env_iptv),
         _mask(expected),
@@ -36,7 +41,7 @@ def _check_integration_api_key(x_api_key: Optional[str]) -> None:
     # Também envia para stdout para aparecer claramente nos logs do serviço
     print(
         "[integration] API key check - header=",
-        _mask(x_api_key),
+        _mask(key),
         "env_integration=",
         _mask(env_integration),
         "env_iptv=",
@@ -45,7 +50,7 @@ def _check_integration_api_key(x_api_key: Optional[str]) -> None:
         _mask(expected),
     )
 
-    if not expected or x_api_key != expected:
+    if not expected or key != expected:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid integration API key",
@@ -83,7 +88,7 @@ def _get_default_owner(db: Session) -> models.User:
 def create_line_from_integration(
     payload: schemas.IntegrationCreateLine,
     db: Session = Depends(get_db),
-    x_api_key: Optional[str] = Header(default=None, convert_underscores=False),
+    authorization: Optional[str] = Header(default=None),
 ):
     """Cria uma linha IPTV via integração externa (ex: app mobile + Mercado Pago).
 
@@ -95,7 +100,7 @@ def create_line_from_integration(
     - max_connections é limitado ao intervalo [1, 3].
     """
 
-    _check_integration_api_key(x_api_key)
+    _check_integration_api_key(authorization)
 
     owner = _get_default_owner(db)
 
