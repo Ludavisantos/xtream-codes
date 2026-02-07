@@ -30,6 +30,35 @@ class UserOut(UserBase):
         from_attributes = True
 
 
+class IntegrationCreateLine(BaseModel):
+    """Payload para criação de linha IPTV via integrações externas.
+
+    Este schema é usado pelo endpoint /integration/lines, chamado pelas Cloud Functions
+    após aprovação de pagamento (ex: Mercado Pago).
+    """
+
+    external_user_id: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    # Meses de validade (fallback quando expires_at não é fornecido)
+    months: Optional[int] = 1
+    # Data de expiração exata (usada quando fornecida pela integração)
+    expires_at: Optional[datetime] = None
+    max_connections: int = 1
+
+
+class IntegrationUpdateLineExpiry(BaseModel):
+    """Payload para atualizar apenas a validade de uma linha IPTV existente via integração.
+
+    Não altera username/senha, apenas a data de expiração.
+    """
+
+    username: str
+    months: Optional[int] = None
+    expires_at: Optional[datetime] = None
+
+
 class UserInfoXtream(BaseModel):
     username: str
     status: str
