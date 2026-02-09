@@ -212,12 +212,406 @@ def sync_channels_and_categories_from_firestore(db: Session) -> Dict:
     }
 
 
-    if isinstance(nested, Dict):
-        url = nested.get("url1")
-        if url:
-            return url
-    url = data.get("url1")
-    return url
+async def _sync_episodes_from_xtream_origin(
+    db: Session,
+    host: str,
+    username: str,
+    password: str,
+    track_progress: bool,
+    fetch_tmdb_details: bool,
+) -> Dict:
+    """Sincroniza episódios de séries copiando do painel Xtream de origem.
+
+    Usa o endpoint padrão do Xtream Codes:
+      - action=get_series_info&series_id=...
+
+    Para cada série em VodContent (type tv/series), tenta recuperar o series_id a
+    partir de external_id (formato "series:{id}") e popula a tabela Episode com
+    os episódios retornados.
+    """
+
+    base = host.strip()
+    if not base:
+        return {"error": "origin host is blank (episodes)"}
+    if "/player_api.php" not in base:
+        base = base.rstrip("/") + "/player_api.php"
+
+    params_base = {"username": username, "password": password}
+
+    logger.info("[sync_episodes_xtream_origin] starting episodes sync from %s", base)
+
+    # Todas as séries conhecidas no VOD (independente de tmdb_id neste modo)
+    vod_series = (
+        db.query(models.VodContent)
+        .filter(
+            models.VodContent.is_available == True,
+            models.VodContent.type.in_(["tv", "series"]),
+        )
+        .all()
+    )
+
+    total_series = len(vod_series)
+    created = 0
+    deleted = 0
+
+    if track_progress:
+        vod_sync_progress.update(
+            {
+                "step": "sync_episodes_xtream_origin",
+                "episodes_series_total": total_series,
+                "episodes_series_current": 0,
+            }
+        )
+
+    async with httpx.AsyncClient(timeout=40) as http:
+        for idx, vod in enumerate(vod_series, start=1):
+            # Extrai series_id do external_id no formato "series:{id}"
+            series_id = None
+            if vod.external_id and vod.external_id.startswith("series:"):
+                series_id = vod.external_id.split(":", 1)[1]
+
+            if not series_id:
+                logger.warning(
+                    "[sync_episodes_xtream_origin] skipping series without external_id series: vod_id=%s title=%s",
+                    vod.id,
+                    vod.title,
+                )
+                continue
+
+            try:
+                logger.info(
+                    "[sync_episodes_xtream_origin] fetching get_series_info for series_id=%s title=%s",
+                    series_id,
+                    vod.title,
+                )
+                r = await http.get(
+                    base,
+                    params={**params_base, "action": "get_series_info", "series_id": series_id},
+                )
+                r.raise_for_status()
+                payload = r.json() or {}
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "[sync_episodes_xtream_origin] get_series_info failed for series_id=%s title=%s",
+                    series_id,
+                    vod.title,
+                )
+                continue
+
+            episodes_obj = payload.get("episodes") or {}
+            if not isinstance(episodes_obj, Dict):
+                logger.error(
+                    "[sync_episodes_xtream_origin] episodes payload is not a dict for series_id=%s type=%r",
+                    series_id,
+                    type(episodes_obj),
+                )
+                continue
+
+            # Remove episódios antigos desta série
+            deleted += (
+                db.query(models.Episode)
+                .filter(models.Episode.vod_id == vod.id)
+                .delete(synchronize_session=False)
+            )
+
+            base_title = vod.title
+            base_category = vod.category
+            base_poster = vod.poster_url
+
+            for season_key, eps_list in episodes_obj.items():
+                try:
+                    season_num = int(season_key)
+                except (TypeError, ValueError):
+                    continue
+
+                if not isinstance(eps_list, List):
+                    logger.warning(
+                        "[sync_episodes_xtream_origin] episodes list for series_id=%s season=%s is not a list (type=%r)",
+                        series_id,
+                        season_key,
+                        type(eps_list),
+                    )
+                    continue
+
+                for ep in eps_list:
+                    if not isinstance(ep, Dict):
+                        continue
+
+                    # Número do episódio
+                    ep_num = ep.get("episode_num") or ep.get("episode_number") or ep.get("id")
+                    try:
+                        ep_num_int = int(ep_num)
+                    except (TypeError, ValueError):
+                        ep_num_int = 0
+
+                    # Título
+                    title = ep.get("title") or ep.get("name") or f"{base_title} S{season_num:02d}E{ep_num_int:02d}"
+
+                    # Poster
+                    poster = (
+                        ep.get("movie_image")
+                        or ep.get("stream_icon")
+                        or base_poster
+                    )
+
+                    # Duração (alguns painéis retornam duration_secs ou duration)
+                    duration_secs = ep.get("duration_secs") or ep.get("duration") or None
+                    try:
+                        if duration_secs is not None:
+                            duration_secs = int(duration_secs)
+                    except Exception:  # noqa: BLE001
+                        duration_secs = None
+
+                    # Stream id + extensão/container
+                    stream_id = ep.get("id") or ep.get("stream_id") or ep.get("episode_id")
+                    container_ext = ep.get("container_extension") or "mp4"
+                    direct_source = ep.get("direct_source")
+                    if not direct_source and stream_id is not None:
+                        # Padrão Xtream para séries
+                        direct_source = (
+                            f"{host.rstrip('/')}/series/{username}/{password}/{stream_id}.{container_ext}"
+                        )
+
+                    episode = models.Episode(
+                        vod_id=vod.id,
+                        tmdb_id=vod.tmdb_id or 0,
+                        season=season_num,
+                        episode=ep_num_int,
+                        title=title,
+                        category=base_category,
+                        poster_url=poster,
+                        duration_secs=duration_secs,
+                        stream_url=direct_source,
+                        is_available=True,
+                    )
+                    db.add(episode)
+                    created += 1
+
+            if track_progress:
+                vod_sync_progress["episodes_series_current"] = idx
+
+    db.commit()
+
+    logger.info(
+        "[sync_episodes_xtream_origin] done - episodes_created=%d episodes_deleted=%d",
+        created,
+        deleted,
+    )
+
+    return {"episodes_created": created, "episodes_deleted": deleted}
+
+
+async def _sync_vod_from_xtream_origin(
+    db: Session,
+    host: str,
+    username: str,
+    password: str,
+    track_progress: bool,
+    fetch_tmdb: bool,
+    only_type: Optional[str],
+) -> Dict:
+    """Sincroniza VOD (filmes/séries) copiando do painel Xtream de origem.
+
+    Usa os endpoints padrão do Xtream Codes:
+      - action=get_vod_streams   -> filmes
+      - action=get_series        -> séries
+
+    Copia o catálogo para a tabela VodContent. Episódios de séries continuam sendo
+    gerados pela rotina existente de disponibilidade externa.
+    """
+
+    # Normaliza base do player_api.php
+    base = host.strip()
+    if not base:
+        return {"error": "origin host is blank"}
+    if "/player_api.php" not in base:
+        base = base.rstrip("/") + "/player_api.php"
+
+    logger.info(
+        "[sync_vod_xtream_origin] starting sync from %s (user=%s)",
+        base,
+        username,
+    )
+
+    params_base = {
+        "username": username,
+        "password": password,
+    }
+
+    async with httpx.AsyncClient(timeout=40) as http:
+        movies_data: List[Dict] = []
+        series_data: List[Dict] = []
+
+        # --- Filmes ---
+        if only_type in (None, "movies"):
+            try:
+                logger.info("[sync_vod_xtream_origin] fetching get_vod_streams")
+                r = await http.get(base, params={**params_base, "action": "get_vod_streams"})
+                r.raise_for_status()
+                payload = r.json()
+                if isinstance(payload, List):
+                    movies_data = [x for x in payload if isinstance(x, Dict)]
+                else:
+                    logger.error("[sync_vod_xtream_origin] get_vod_streams payload is not a list: %r", type(payload))
+            except Exception:  # noqa: BLE001
+                logger.exception("[sync_vod_xtream_origin] get_vod_streams failed")
+                return {"error": "get_vod_streams failed"}
+
+        # --- Séries ---
+        if only_type in (None, "series"):
+            try:
+                logger.info("[sync_vod_xtream_origin] fetching get_series")
+                r = await http.get(base, params={**params_base, "action": "get_series"})
+                r.raise_for_status()
+                payload = r.json()
+                if isinstance(payload, List):
+                    series_data = [x for x in payload if isinstance(x, Dict)]
+                else:
+                    logger.error("[sync_vod_xtream_origin] get_series payload is not a list: %r", type(payload))
+            except Exception:  # noqa: BLE001
+                logger.exception("[sync_vod_xtream_origin] get_series failed")
+                return {"error": "get_series failed"}
+
+    total_items = len(movies_data) + len(series_data)
+    created = 0
+    updated = 0
+
+    if track_progress:
+        vod_sync_progress.update(
+            {
+                "running": True,
+                "current": 0,
+                "total": total_items,
+                "tmdb_attempts": 0,
+                "tmdb_success": 0,
+                "step": "processing_xtream_origin",
+                "error": None,
+            }
+        )
+
+    logger.info(
+        "[sync_vod_xtream_origin] loaded movies=%d series=%d (total=%d)",
+        len(movies_data),
+        len(series_data),
+        total_items,
+    )
+
+    # Helper para upsert de VodContent a partir de um dict genérico
+    def upsert_vod(
+        *,
+        external_id: Optional[str],
+        title: str,
+        vtype: str,
+        poster_url: Optional[str],
+        backdrop_url: Optional[str],
+        category: Optional[str],
+        stream_url: Optional[str],
+    ) -> None:
+        nonlocal created, updated
+
+        if not title:
+            return
+
+        q = db.query(models.VodContent)
+        vod = None
+        if external_id:
+            vod = q.filter(models.VodContent.external_id == external_id).first()
+
+        if not vod:
+            vod = models.VodContent(
+                external_id=external_id,
+                tmdb_id=None,
+                title=title,
+                type=vtype,
+                poster_url=poster_url,
+                backdrop_url=backdrop_url,
+                category=category,
+                stream_url=stream_url,
+                is_available=True,
+            )
+            db.add(vod)
+            created += 1
+        else:
+            vod.title = title
+            vod.type = vtype
+            vod.poster_url = poster_url or vod.poster_url
+            vod.backdrop_url = backdrop_url or vod.backdrop_url
+            vod.category = category or vod.category
+            vod.stream_url = stream_url or vod.stream_url
+            vod.is_available = True
+            updated += 1
+
+    # Processa filmes
+    for idx, item in enumerate(movies_data, start=1):
+        try:
+            stream_id = item.get("stream_id") or item.get("id")
+            ext_id = str(stream_id) if stream_id is not None else None
+            title = item.get("name") or item.get("title") or ""
+            poster = item.get("stream_icon") or None
+            category_id = item.get("category_id")
+            # Tenta usar direct_source se existir; caso contrário, monta URL padrão Xtream
+            direct_source = item.get("direct_source") or None
+            if not direct_source and stream_id is not None:
+                # Padrão típico: /movie/username/password/stream_id.ext
+                container_ext = item.get("container_extension") or "mp4"
+                direct_source = f"{host.rstrip('/')}/movie/{username}/{password}/{stream_id}.{container_ext}"
+
+            upsert_vod(
+                external_id=f"movie:{ext_id}" if ext_id else None,
+                title=title,
+                vtype="movie",
+                poster_url=poster,
+                backdrop_url=None,
+                category=str(category_id) if category_id is not None else None,
+                stream_url=direct_source,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("[sync_vod_xtream_origin] failed to process movie item: %r", item)
+
+        if track_progress and (idx % 50 == 0 or idx == total_items):
+            vod_sync_progress["current"] = idx
+
+    # Processa séries (apenas cadastro básico; episódios continuam via disponibilidade externa)
+    offset = len(movies_data)
+    for i, item in enumerate(series_data, start=1):
+        idx = offset + i
+        try:
+            series_id = item.get("series_id") or item.get("id")
+            ext_id = str(series_id) if series_id is not None else None
+            title = item.get("name") or item.get("title") or ""
+            poster = item.get("cover") or item.get("cover_big") or None
+            genre = item.get("genre") or None
+
+            upsert_vod(
+                external_id=f"series:{ext_id}" if ext_id else None,
+                title=title,
+                vtype="series",
+                poster_url=poster,
+                backdrop_url=None,
+                category=genre,
+                stream_url=None,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("[sync_vod_xtream_origin] failed to process series item: %r", item)
+
+        if track_progress and (idx % 50 == 0 or idx == total_items):
+            vod_sync_progress["current"] = idx
+
+    db.commit()
+
+    logger.info(
+        "[sync_vod_xtream_origin] done - vod_created=%d vod_updated=%d total=%d",
+        created,
+        updated,
+        total_items,
+    )
+
+    return {
+        "vod_created": created,
+        "vod_updated": updated,
+        "vod_total_items": total_items,
+        "source": "xtream_origin",
+    }
 
 
 async def sync_vod_from_contents_json(
@@ -226,13 +620,37 @@ async def sync_vod_from_contents_json(
     fetch_tmdb: bool = True,
     only_type: Optional[str] = None,
 ) -> Dict:
-    """Sincroniza conteúdos VOD (filmes/séries) a partir do JSON usado pelo app.
+    """Sincroniza conteúdos VOD (filmes/séries).
 
-    Usa a mesma lógica do ContentsRepository Kotlin:
-      - lê Firestore app_config/contents para descobrir a URL
-      - baixa JSON e popula VodContent
+    Modo configurável via PanelSettings.sync_mode:
+      - "contents_json" (legado): lê Firestore app_config/contents e baixa o JSON.
+      - "xtream_origin": usa painel Xtream de origem configurado no PanelSettings.
     """
 
+    # Lê modo de sync e, se necessário, as credenciais do painel de origem.
+    settings = db.query(models.PanelSettings).first()
+    sync_mode = (settings.sync_mode if settings and settings.sync_mode else "contents_json").strip()
+
+    if sync_mode == "xtream_origin":
+        origin_host = (settings.origin_host or "").strip()
+        origin_username = (settings.origin_username or "").strip()
+        origin_password = (settings.origin_password or "").strip()
+        if not origin_host or not origin_username or not origin_password:
+            return {"error": "origin_host/origin_username/origin_password not configured for xtream_origin"}
+
+        # Aqui delegamos para a rotina específica que irá copiar o catálogo
+        # completo do painel Xtream de origem.
+        return await _sync_vod_from_xtream_origin(
+            db=db,
+            host=origin_host,
+            username=origin_username,
+            password=origin_password,
+            track_progress=track_progress,
+            fetch_tmdb=fetch_tmdb,
+            only_type=only_type,
+        )
+
+    # Modo legado: contents.json a partir do Firestore
     client = _get_firestore_client()
     url = _resolve_contents_url_from_firestore(client)
     if not url:
@@ -761,16 +1179,35 @@ async def sync_series_episodes_from_availability(
     track_progress: bool = False,
     fetch_tmdb_details: bool = True,
 ) -> Dict:
-    """Sincroniza episódios de séries usando o endpoint externo de disponibilidade.
+    """Sincroniza episódios de séries.
 
-    O endpoint retorna um mapa de tmdb_id -> temporadas -> episódios. Para cada
-    combinação, criamos/atualizamos registros em Episode com a URL final do
-    arquivo de vídeo.
-
-    Quando ``fetch_tmdb_details`` é False, ainda criamos todos os episódios,
-    mas pulamos as chamadas à TMDB por episódio, usando apenas título padrão
-    (ex.: "SxxExx") e o poster da série. Isso torna a sync muito mais rápida.
+    Comportamento depende de PanelSettings.sync_mode:
+      - "contents_json" (legado): usa endpoint externo de disponibilidade.
+      - "xtream_origin": usa get_series_info do painel Xtream de origem.
     """
+
+    settings = db.query(models.PanelSettings).first()
+    sync_mode = (settings.sync_mode if settings and settings.sync_mode else "contents_json").strip()
+
+    if sync_mode == "xtream_origin":
+        origin_host = (settings.origin_host or "").strip()
+        origin_username = (settings.origin_username or "").strip()
+        origin_password = (settings.origin_password or "").strip()
+        if not origin_host or not origin_username or not origin_password:
+            return {
+                "error": "origin_host/origin_username/origin_password not configured for xtream_origin (episodes)",
+            }
+
+        return await _sync_episodes_from_xtream_origin(
+            db=db,
+            host=origin_host,
+            username=origin_username,
+            password=origin_password,
+            track_progress=track_progress,
+            fetch_tmdb_details=fetch_tmdb_details,
+        )
+
+    # --- Modo legado: disponibilidade externa ---
 
     availability_url = "https://getalltvavailability-hlrg3wz4pq-uc.a.run.app/"
 

@@ -143,6 +143,12 @@ class PanelSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     panel_name = Column(String, default="Xtream Python")
     server_message = Column(String, nullable=True)
+    
+    sync_mode = Column(String, default="contents_json")
+    # Config do painel Xtream de origem (quando sync_mode == "xtream_origin")
+    origin_host = Column(String, nullable=True)
+    origin_username = Column(String, nullable=True)
+    origin_password = Column(String, nullable=True)
 
 
 class PanelUiSettings(Base):

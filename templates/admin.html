@@ -81,7 +81,8 @@
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Sincronizar VOD</h5>
-                        <p class="card-text">Puxa filmes e séries do JSON de conteúdos e permite atualizar apenas capas via TMDB.</p>
+                        <p class="card-text">Puxa filmes e séries da fonte configurada nas configurações do painel (JSON de conteúdos ou painel Xtream Codes de origem) e permite atualizar apenas capas via TMDB.</p>
+                        <p id="vod-sync-mode-info" class="small text-muted mb-2"></p>
                         <div class="d-flex flex-wrap gap-2">
                             <button id="btn-sync-vod" class="btn btn-primary" type="button">Sincronizar VOD (completo)</button>
                             <button id="btn-sync-vod-no-episodes" class="btn btn-outline-primary btn-sm" type="button">VOD (sem detalhes de episódios)</button>
@@ -469,6 +470,30 @@
                             </select>
                         </div>
                     </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label">Modo de sincronização de VOD</label>
+                        <select class="form-select" id="input-sync-mode">
+                            <option value="contents_json">JSON de conteúdos (modo legado)</option>
+                            <option value="xtream_origin">Xtream Codes de origem</option>
+                        </select>
+                        <div class="form-text">Escolha se o catálogo VOD será lido do contents.json antigo ou espelhado de um painel Xtream Codes de origem.</div>
+                    </div>
+                    <div class="row g-3 mb-3" id="xtream-origin-settings">
+                        <div class="col-md-6">
+                            <label class="form-label">Host do painel Xtream de origem</label>
+                            <input type="text" class="form-control" id="input-origin-host" placeholder="Ex: http://meupainel:8080 ou http://meupainel:8080/player_api.php">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Usuário do painel de origem</label>
+                            <input type="text" class="form-control" id="input-origin-username" placeholder="Usuário Xtream de origem">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Senha do painel de origem</label>
+                            <input type="password" class="form-control" id="input-origin-password" placeholder="Senha Xtream de origem">
+                            <div class="form-text">Deixe em branco para manter a senha atual.</div>
+                        </div>
+                    </div>
                     <button type="submit" class="btn btn-primary">Salvar configurações</button>
                 </form>
             </div>
@@ -729,6 +754,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/static/admin_panel.js"></script>
+<script src="/static/admin_panel.js?v=2"></script>
 </body>
 </html>

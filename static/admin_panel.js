@@ -20,6 +20,7 @@
   const btnSyncVodPosters = document.getElementById("btn-sync-vod-posters");
   const syncChannelsResult = document.getElementById("sync-channels-result");
   const syncVodResult = document.getElementById("sync-vod-result");
+  const vodSyncModeInfo = document.getElementById("vod-sync-mode-info");
   const vodSyncModalEl = document.getElementById("vodSyncModal");
   const vodSyncModal = vodSyncModalEl ? new bootstrap.Modal(vodSyncModalEl) : null;
   const vodSyncStatusEl = document.getElementById("vod-sync-status");
@@ -44,6 +45,11 @@
   const inputTimezone = document.getElementById("input-timezone");
   const inputLoginTheme = document.getElementById("input-login-theme");
   const inputPanelTheme = document.getElementById("input-panel-theme");
+  const inputSyncMode = document.getElementById("input-sync-mode");
+  const inputOriginHost = document.getElementById("input-origin-host");
+  const inputOriginUsername = document.getElementById("input-origin-username");
+  const inputOriginPassword = document.getElementById("input-origin-password");
+  const xtreamOriginSettingsRow = document.getElementById("xtream-origin-settings");
 
   function applyLoginTheme(theme) {
     if (!sectionLogin) return;
@@ -488,6 +494,45 @@
       }
 
       applyPanelTheme(panelThemeFromServer);
+
+      // Modo de sync de VOD e painel Xtream de origem
+      const syncModeFromServer = (data.sync_mode || "contents_json").toString();
+      if (inputSyncMode) {
+        inputSyncMode.value = syncModeFromServer;
+      }
+
+      if (inputOriginHost) {
+        inputOriginHost.value = data.origin_host || "";
+      }
+      if (inputOriginUsername) {
+        inputOriginUsername.value = data.origin_username || "";
+      }
+      if (inputOriginPassword) {
+        // Nunca mostramos a senha atual; campo vazio significa "manter"
+        inputOriginPassword.value = "";
+        if (data.origin_password_set) {
+          inputOriginPassword.placeholder = "(senha já configurada)";
+        }
+      }
+
+      // Mostra/esconde os campos de origem conforme o modo selecionado
+      if (xtreamOriginSettingsRow) {
+        if (syncModeFromServer === "xtream_origin") {
+          xtreamOriginSettingsRow.classList.remove("d-none");
+        } else {
+          xtreamOriginSettingsRow.classList.add("d-none");
+        }
+      }
+
+      // Texto de resumo do modo de sync no card do Dashboard
+      if (vodSyncModeInfo) {
+        if (syncModeFromServer === "xtream_origin") {
+          const host = data.origin_host || "(host não configurado)";
+          vodSyncModeInfo.textContent = `Modo atual: Xtream Codes de origem (${host})`;
+        } else {
+          vodSyncModeInfo.textContent = "Modo atual: JSON de conteúdos (legado / Firestore + contents.json)";
+        }
+      }
 
       // Apenas admins podem ver o card de configurações
       if (panelSettingsCard) {
@@ -1776,7 +1821,15 @@
         timezone: inputTimezone ? inputTimezone.value : undefined,
         login_theme: inputLoginTheme ? inputLoginTheme.value : undefined,
         panel_theme: inputPanelTheme ? inputPanelTheme.value : undefined,
+        sync_mode: inputSyncMode ? inputSyncMode.value : undefined,
+        origin_host: inputOriginHost ? inputOriginHost.value : undefined,
+        origin_username: inputOriginUsername ? inputOriginUsername.value : undefined,
       };
+
+      // origin_password é opcional: só envia se usuário digitou algo
+      if (inputOriginPassword && inputOriginPassword.value.trim() !== "") {
+        payload.origin_password = inputOriginPassword.value.trim();
+      }
 
       apiRequest("PUT", "/admin/settings/", payload)
         .then((data) => {
